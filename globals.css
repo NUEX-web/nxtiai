@@ -1,0 +1,307 @@
+@import "tailwindcss";
+
+:root {
+  /* Neutrals — cool slate scale (replaces the earlier warm cream system).
+     Primary dark (--ink) is a deep charcoal-navy used for headlines and
+     as the one deliberately dark surface (footer) that gives the mostly
+     light, bright page some real contrast. */
+  --canvas: #f8fafc;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --ink: #101828;
+  --ink-soft: #475467;
+  --ink-faint: #98a2b3;
+  --line: #e4e7ec;
+  --line-strong: #d0d5dd;
+
+  /* Brand green — NXTIAI's single primary action / AI identity color.
+     Used for CTAs, active states and the AI-processing motif — not for
+     decoration everywhere. */
+  --accent: #16a34a;
+  --accent-strong: #15803d;
+  --accent-soft: #dcfce7;
+  --accent-soft-line: #bbf7d0;
+  --accent-tint: #22c55e;
+  --mint: #f0fdf4;
+
+  /* Secondary AI accent — a quiet indigo used only where something is
+     specifically about the AI engine/model layer (not the general brand
+     color), so it reads as a distinct signal rather than a second brand. */
+  --ai-accent: #6366f1;
+  --ai-accent-soft: #eef2ff;
+  --ai-accent-soft-line: #e0e7ff;
+
+  --success: #16a34a;
+  --success-soft: #dcfce7;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+
+  /* The one intentionally dark surface in the system (footer today) —
+     kept as its own tokens rather than reusing --ink so the relationship
+     is explicit, not coincidental. */
+  --contrast-bg: var(--ink);
+  --contrast-ink: #f8fafc;
+  --contrast-ink-soft: #98a2b3;
+  --contrast-line: rgba(248, 250, 252, 0.12);
+
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 8px 24px -8px rgba(16, 24, 40, 0.16);
+  --shadow-lg: 0 24px 48px -16px rgba(16, 24, 40, 0.24);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-line: var(--accent-soft-line);
+  --color-accent-tint: var(--accent-tint);
+  --color-mint: var(--mint);
+  --color-ai-accent: var(--ai-accent);
+  --color-ai-accent-soft: var(--ai-accent-soft);
+  --color-ai-accent-soft-line: var(--ai-accent-soft-line);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-contrast-bg: var(--contrast-bg);
+  --color-contrast-ink: var(--contrast-ink);
+  --color-contrast-ink-soft: var(--contrast-ink-soft);
+  --color-contrast-line: var(--contrast-line);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+* {
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--accent-soft-line);
+  color: var(--accent-strong);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------
+   Motion primitives — deliberately subtle. Everything respects
+   prefers-reduced-motion via the block above.
+   --------------------------------------------------------------------- */
+
+@keyframes reveal-line {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal-line {
+  animation: reveal-line 380ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 220ms ease forwards;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Stagger children of an element carrying this class by giving each an
+   incrementally later start — used for hero copy / feature grids. */
+.stagger > * {
+  opacity: 0;
+  animation: fade-in-up 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 70ms; }
+.stagger > *:nth-child(3) { animation-delay: 140ms; }
+.stagger > *:nth-child(4) { animation-delay: 210ms; }
+.stagger > *:nth-child(5) { animation-delay: 280ms; }
+
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes loading-bar {
+  0% { left: -33%; }
+  55% { left: 100%; }
+  100% { left: 100%; }
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float-y 4.5s ease-in-out infinite;
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-scale-in {
+  animation: scale-in 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Section-reveal-on-scroll: applied via a tiny IntersectionObserver hook
+   (useRevealOnScroll) that just toggles this class — CSS does the actual
+   animating, so there's nothing to animate if JS hasn't run yet or the
+   user prefers reduced motion. */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 560ms cubic-bezier(0.16, 1, 0.3, 1), transform 560ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------------------------------------------------------------------
+   Writing workspace layout — LEFT settings / CENTER editor / RIGHT
+   output on large screens, stacked on mobile and tablet.
+   --------------------------------------------------------------------- */
+
+.workspace-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+  .workspace-shell {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 1.5rem;
+  }
+}
+
+.workspace-settings {
+  order: 1;
+}
+
+.workspace-editor {
+  order: 2;
+}
+
+.workspace-output {
+  order: 3;
+}
+
+/* ---------------------------------------------------------------------
+   Small reusable surfaces
+   --------------------------------------------------------------------- */
+
+.panel {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.panel-hover:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.noise-grid {
+  background-image:
+    linear-gradient(to right, rgba(16, 24, 40, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16, 24, 40, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 60% 55% at 50% 0%, black 40%, transparent 100%);
+}
+
+.mint-glow {
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 15%, rgba(22, 163, 74, 0.10), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 85% 10%, rgba(99, 102, 241, 0.07), transparent 60%);
+}
