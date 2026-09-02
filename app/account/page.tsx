@@ -7,6 +7,26 @@ export const metadata = {
   title: "Your account — NXTIAI",
 };
 
+// This page reads the signed-in user's Supabase session (via cookies)
+// and their profile row on every load, so its output is inherently
+// per-request and per-user -- it must never be statically generated or
+// cached. Next.js normally infers this automatically from the
+// cookies()/auth call below, but that inference only happens if this
+// Server Component actually gets to execute during the build's
+// prerender attempt. app/layout.tsx wraps every route in
+// <AuthProvider>, a client component whose useState lazy initializer
+// runs first (parents render before children) and constructs the
+// Supabase browser client synchronously -- so an exception in that
+// client construction step (env misconfiguration, a transient SDK
+// issue, etc.) aborts the render before Next.js ever reaches the code
+// below and discovers it needs cookies(), which surfaces as a hard
+// prerender error instead of "skip static generation for this route."
+// Declaring dynamic rendering explicitly here removes that race
+// entirely: Next reads this exported const during its static
+// route-segment analysis, before attempting to render anything, and
+// never tries to statically prerender this route in the first place.
+export const dynamic = "force-dynamic";
+
 interface ProfileRow {
   full_name: string | null;
   plan_tier: "free" | "pro" | "business" | null;
