@@ -12,7 +12,38 @@ interface AuthModalProps {
 
 type Mode = "login" | "signup" | "reset";
 
+// A Supabase auth call that never resolves (e.g. a DNS/connection hang on a
+// misconfigured or unreachable project URL) must not leave the UI spinning
+// forever — every auth call below is bounded by this timeout.
+const AUTH_TIMEOUT_MS = 15000;
+
+class AuthTimeoutError extends Error {
+  constructor() {
+    super("Authentication request timed out.");
+    this.name = "AuthTimeoutError";
+  }
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, ms: number = AUTH_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new AuthTimeoutError()), ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 function isLikelyNetworkError(err: unknown): boolean {
+  // A request that never got a response at all — including one we gave up
+  // on ourselves via withTimeout() above — is a network-class failure.
+  if (err instanceof AuthTimeoutError) return true;
   // A raw, un-wrapped fetch() rejection is a bare TypeError — always a
   // network failure (DNS/connection/CORS failure, never a real HTTP
   // response).
@@ -72,18 +103,20 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
 
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName },
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
+        const { error } = await withTimeout(
+          supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { full_name: fullName },
+              emailRedirectTo: `${window.location.origin}/auth/callback`,
+            },
+          }),
+        );
         if (error) throw error;
         setMessage("Check your email for the confirmation link to complete registration!");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await withTimeout(supabase.auth.signInWithPassword({ email, password }));
         if (error) throw error;
         onClose();
       }
@@ -104,9 +137,11 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
     resetFeedback();
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/account/reset-password`,
-      });
+      const { error } = await withTimeout(
+        supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/callback?next=/account/reset-password`,
+        }),
+      );
       if (error) throw error;
       setMessage("If an account exists for that email, a reset link is on its way.");
     } catch (err) {
@@ -124,15 +159,17 @@ export default function AuthModal({ isOpen, onClose, initialMode = "login" }: Au
     setLoading(true);
     resetFeedback();
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          // Environment-aware by construction: window.location.origin is
-          // whatever host actually served this page (localhost:3001 in
-          // dev, https://nxtiai.com in production) — never hardcoded.
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
+      const { error } = await withTimeout(
+        supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            // Environment-aware by construction: window.location.origin is
+            // whatever host actually served this page (localhost:3001 in
+            // dev, https://nxtiai.com in production) — never hardcoded.
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        }),
+      );
       if (error) throw error;
     } catch (err) {
       if (isLikelyNetworkError(err)) {
