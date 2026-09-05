@@ -13,14 +13,27 @@ interface AuthModalProps {
 type Mode = "login" | "signup" | "reset";
 
 function isLikelyNetworkError(err: unknown): boolean {
-  // Supabase's client throws whatever the underlying fetch() rejects
-  // with on a network failure — typically a bare TypeError with no
-  // Supabase-specific fields, unlike its own AuthError/AuthApiError
-  // which always carry a status.
-  return (
-    err instanceof TypeError ||
-    (err instanceof Error && !("status" in err) && /fetch|network/i.test(err.message))
-  );
+  // A raw, un-wrapped fetch() rejection is a bare TypeError — always a
+  // network failure (DNS/connection/CORS failure, never a real HTTP
+  // response).
+  if (err instanceof TypeError) return true;
+  if (!(err instanceof Error)) return false;
+
+  // Supabase's AuthError/AuthApiError classes declare a `status` field
+  // in their constructor for EVERY instance, including ones built from
+  // a network-level failure that never got a response — so checking
+  // whether the key exists (the previous `!("status" in err)` check)
+  // never actually excludes a wrapped network error, it only ever
+  // matches a bare TypeError. A real HTTP response status (400 for bad
+  // credentials, 422, etc.) is what should stop this from firing —
+  // check for a genuine positive status code instead of key presence.
+  const status = (err as { status?: unknown }).status;
+  if (typeof status === "number" && status > 0) return false;
+
+  // Covers Supabase's own wrapped version of a fetch failure, whose
+  // message is still literally "Failed to fetch" (or similar) even
+  // though the object itself isn't a plain TypeError anymore.
+  return /fetch|network/i.test(err.message);
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = "login" }: AuthModalProps) {
