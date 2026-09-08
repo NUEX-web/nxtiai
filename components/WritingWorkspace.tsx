@@ -485,7 +485,7 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
         </div>
       </div>
 
-      <p className="mt-4 text-xs text-ink-faint">Rewrites are generated using Google Gemini.</p>
+      <p className="mt-4 text-xs text-ink-faint">Rewrites are generated using NXTIAI&apos;s AI engine.</p>
     </>
   );
 }
