@@ -159,16 +159,14 @@ export default function Navbar() {
                       <User2 className="h-4 w-4 text-accent" />
                       Profile
                     </Link>
-                    <div
-                      className="flex cursor-not-allowed items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-medium text-ink-faint"
-                      title="Usage tracking is coming soon"
+                    <Link
+                      href="/account#usage"
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-ink hover:bg-accent-soft"
                     >
-                      <span className="flex items-center gap-2">
-                        <Gauge className="h-4 w-4" />
-                        Usage
-                      </span>
-                      <span className="rounded-full bg-line px-1.5 py-0.5 text-[9px] font-semibold uppercase">Soon</span>
-                    </div>
+                      <Gauge className="h-4 w-4 text-accent" />
+                      Usage
+                    </Link>
                     <div
                       className="flex cursor-not-allowed items-center justify-between gap-2 rounded-xl px-3 py-2 text-xs font-medium text-ink-faint"
                       title="A full dashboard is coming soon"
