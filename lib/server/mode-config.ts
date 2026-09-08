@@ -30,6 +30,12 @@ export const MODE_CONFIG: Record<ModeId, ModeConfig> = {
   humanize: { directive: "Rewrite so it reads naturally, like a person wrote it.", formality: "low", lengthMultiplier: 1 },
   "legal-simplifier": { directive: "Rewrite contract-style language in plain English.", formality: "neutral", lengthMultiplier: 1 },
   email: { directive: "Rewrite as a short, well-structured email.", formality: "high", lengthMultiplier: 1.2 },
+  "grammar-checker": {
+    directive:
+      "Correct only grammar, spelling, and punctuation mistakes. Do not change word choice, tone, sentence structure, or meaning beyond what is required to fix an actual error.",
+    formality: "neutral",
+    lengthMultiplier: 1,
+  },
 };
 
 /** Source of truth for "is this a real mode id" — used by request validation. */

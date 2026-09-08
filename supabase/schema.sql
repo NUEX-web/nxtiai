@@ -126,6 +126,10 @@ create table if not exists public.user_subscriptions (
   provider_customer_id text,
   provider_subscription_id text,
   plan_id text not null default 'free',
+  -- 'inactive' | 'active' | 'past_due' (a renewal charge failed or a
+  -- billing period lapsed with no confirmed renewal -- see
+  -- app/api/payments/webhook/route.ts and
+  -- app/api/cron/check-lapsed-subscriptions/route.ts)
   status text not null default 'inactive',
   current_period_start timestamp with time zone,
   current_period_end timestamp with time zone,

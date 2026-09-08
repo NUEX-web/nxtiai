@@ -86,6 +86,10 @@ function transformForMode(input: string, mode: ModeId): string {
       );
     case "email":
       return `Hi,\n\n${capitalizeFirst(applyMap(trimFillers(trimmed), FORMAL_MAP))}\n\nBest regards`;
+    case "grammar-checker": {
+      const cleaned = trimmed.replace(/\s+/g, " ").replace(/\s+([,.!?;:])/g, "$1");
+      return capitalizeFirst(cleaned).replace(/([^.!?])$/, "$1.");
+    }
     case "standard":
     default:
       return capitalizeFirst(applyMap(trimFillers(trimmed), CONTRACTION_MAP));

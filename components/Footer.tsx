@@ -16,23 +16,23 @@ const FOOTER_COLUMNS: FooterColumn[] = [
       { label: "AI Writer", href: "/?mode=standard#workspace" },
       { label: "Paraphraser", href: "/?mode=standard#workspace" },
       { label: "Humanizer", href: "/?mode=humanize#workspace" },
-      { label: "Grammar Checker", comingSoon: true },
-      { label: "AI Detector", comingSoon: true },
+      { label: "Grammar Checker", href: "/?mode=grammar-checker#workspace" },
+      { label: "AI Detector", href: "/ai-detector" },
     ],
   },
   {
     title: "Company",
     links: [
-      { label: "About", comingSoon: true },
-      { label: "Contact", href: "mailto:hello@nxtiai.com" },
+      { label: "About", href: "/about" },
+      { label: "Contact", href: "mailto:shaikhsameerkadeer@gmail.com" },
     ],
   },
   {
     title: "Resources",
     links: [
-      { label: "Blog", comingSoon: true },
-      { label: "Guides", comingSoon: true },
-      { label: "Help center", comingSoon: true },
+      { label: "Blog", href: "/blog" },
+      { label: "Guides", href: "/guides" },
+      { label: "Help center", href: "/help" },
     ],
   },
   {
@@ -40,7 +40,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     links: [
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
-      { label: "Cookie Policy", comingSoon: true },
+      { label: "Cookie Policy", href: "/cookie-policy" },
     ],
   },
 ];

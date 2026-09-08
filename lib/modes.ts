@@ -8,7 +8,8 @@ export type ModeId =
   | "shorten"
   | "humanize"
   | "legal-simplifier"
-  | "email";
+  | "email"
+  | "grammar-checker";
 
 export interface WritingMode {
   id: ModeId;
@@ -27,6 +28,7 @@ export const WRITING_MODES: WritingMode[] = [
   { id: "humanize", label: "Humanize", description: "Sound less like a machine wrote it" },
   { id: "legal-simplifier", label: "Legal Simplifier", description: "Plain-English contract language" },
   { id: "email", label: "Email", description: "Structured for a real inbox" },
+  { id: "grammar-checker", label: "Grammar Checker", description: "Fix grammar, spelling and punctuation only" },
 ];
 
 export type VoiceId = "my-voice" | "professional" | "academic" | "casual" | "business";
