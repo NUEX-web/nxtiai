@@ -22,19 +22,22 @@ interface Tool {
   icon: ComponentType<{ className?: string }>;
   /** Real mode id from lib/modes.ts this card opens the editor with. */
   mode?: string;
+  /** Standalone page instead of a workspace mode (e.g. AI Detector). Takes
+   * priority over `mode` when both would otherwise apply. */
+  href?: string;
   comingSoon?: boolean;
 }
 
 const TOOLS: Tool[] = [
   { name: "Paraphraser", description: "Rephrase any text while keeping the meaning intact.", icon: Repeat, mode: "standard" },
-  { name: "Grammar Checker", description: "Catch grammar, spelling and punctuation issues.", icon: SpellCheck2, comingSoon: true },
+  { name: "Grammar Checker", description: "Catch grammar, spelling and punctuation issues.", icon: SpellCheck2, mode: "grammar-checker" },
   { name: "Summarizer", description: "Turn long text into a short, accurate summary.", icon: ScanSearch, mode: "shorten" },
   { name: "Humanizer", description: "Make AI-generated text read naturally.", icon: Sparkles, mode: "humanize" },
   { name: "AI Writer", description: "Draft new content from a topic or outline.", icon: PenLine, mode: "standard" },
   { name: "Academic Writer", description: "Write in a formal, citation-ready register.", icon: GraduationCap, mode: "academic" },
   { name: "Email Writer", description: "Compose clear emails for any situation.", icon: Mail, mode: "email" },
   { name: "Brand Voice", description: "Keep every piece of content on-brand.", icon: Fingerprint, comingSoon: true },
-  { name: "AI Detector", description: "Check whether text reads as AI-written.", icon: ShieldCheck, comingSoon: true },
+  { name: "AI Detector", description: "Check whether text reads as AI-written.", icon: ShieldCheck, href: "/ai-detector" },
 ];
 
 export default function ToolsSection() {
@@ -79,7 +82,7 @@ export default function ToolsSection() {
           return (
             <Link
               key={tool.name}
-              href={`/?mode=${tool.mode}#workspace`}
+              href={tool.href ?? `/?mode=${tool.mode}#workspace`}
               className="group flex flex-col gap-3 bg-surface px-5 py-6 transition-colors hover:bg-accent-soft"
             >
               <Icon className="h-5 w-5 text-accent" aria-hidden="true" />
