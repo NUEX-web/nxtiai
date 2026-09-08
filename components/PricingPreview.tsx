@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Check } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { useRevealOnScroll } from "@/lib/hooks/use-reveal-on-scroll";
@@ -32,7 +33,6 @@ const PLANS: Plan[] = [
     description: "For regular writing, all modes included.",
     features: ["All writing modes", "Unlimited rewrites", "3 voice profiles", "Priority AI model"],
     highlighted: true,
-    note: "Billing isn't live yet — creating an account reserves your spot for launch.",
   },
   {
     name: "Business",
@@ -48,15 +48,59 @@ const BUSINESS_CONTACT_HREF =
   "mailto:hello@nxtiai.com?subject=NXTIAI%20Business%20plan&body=Hi%20NXTIAI%2C%0A%0AWe'd%20like%20to%20talk%20about%20the%20Business%20plan.%0A%0ATeam%20size%3A%20%0ACompany%3A%20";
 
 export default function PricingPreview() {
-  const { user, openAuthModal } = useAuth();
+  const { user, profile, openAuthModal } = useAuth();
   const { ref, className } = useRevealOnScroll<HTMLDivElement>();
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  const handlePlanClick = () => {
+  const goToWorkspace = () => {
+    document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleFreePlanClick = () => {
     if (user) {
-      document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth" });
+      goToWorkspace();
       return;
     }
     openAuthModal("signup");
+  };
+
+  const handleProPlanClick = async () => {
+    if (!user) {
+      openAuthModal("signup");
+      return;
+    }
+    if (profile?.plan_tier === "pro") {
+      goToWorkspace();
+      return;
+    }
+
+    setCheckoutError(null);
+    setIsCheckingOut(true);
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: "pro" }),
+      });
+      const data: { url?: string; error?: { message?: string } } = await response.json();
+      if (!response.ok || !data.url) {
+        throw new Error(data.error?.message || "Could not start checkout. Try again.");
+      }
+      // Full navigation, not client-side routing -- Mollie's hosted
+      // checkout is a different origin entirely.
+      window.location.href = data.url;
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Could not start checkout. Try again.");
+      setIsCheckingOut(false);
+    }
+  };
+
+  const proButtonLabel = () => {
+    if (isCheckingOut) return "Redirecting…";
+    if (!user) return "Choose Pro";
+    if (profile?.plan_tier === "pro") return "Current plan";
+    return "Choose Pro";
   };
 
   return (
@@ -114,24 +158,36 @@ export default function PricingPreview() {
                 >
                   Talk to us
                 </a>
+              ) : plan.name === "Pro" ? (
+                <button
+                  type="button"
+                  onClick={handleProPlanClick}
+                  disabled={isCheckingOut}
+                  className={`mt-7 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
+                    plan.highlighted
+                      ? "bg-accent text-white shadow-sm hover:bg-accent-strong"
+                      : "border border-line text-ink hover:border-line-strong"
+                  }`}
+                >
+                  {proButtonLabel()}
+                </button>
               ) : (
                 <button
                   type="button"
-                  onClick={handlePlanClick}
+                  onClick={handleFreePlanClick}
                   className={`mt-7 rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
                     plan.highlighted
                       ? "bg-accent text-white shadow-sm hover:bg-accent-strong"
                       : "border border-line text-ink hover:border-line-strong"
                   }`}
                 >
-                  {user
-                    ? "Go to workspace"
-                    : plan.name === "Free"
-                      ? "Start writing free"
-                      : `Choose ${plan.name}`}
+                  {user ? "Go to workspace" : "Start writing free"}
                 </button>
               )}
 
+              {plan.name === "Pro" && checkoutError && (
+                <p className="mt-2.5 text-xs text-danger">{checkoutError}</p>
+              )}
               {plan.note && !user && (
                 <p className="mt-2.5 text-xs text-ink-faint">{plan.note}</p>
               )}

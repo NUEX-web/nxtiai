@@ -26,6 +26,12 @@ export class ValidationError extends AppError {
   }
 }
 
+export class UnauthorizedError extends AppError {
+  constructor(message = "You must be signed in to do that.") {
+    super("UNAUTHORIZED", message, 401);
+  }
+}
+
 export class RateLimitError extends AppError {
   readonly retryAfterMs: number;
 

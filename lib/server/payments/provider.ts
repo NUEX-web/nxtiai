@@ -36,6 +36,12 @@ export interface CreateCheckoutParams {
    * never hardcoded to localhost. */
   successUrl: string;
   cancelUrl: string;
+  /** Where the provider should POST payment status updates
+   * server-to-server (see app/api/payments/webhook/route.ts). Built by
+   * the caller from the incoming request's own origin -- see
+   * app/api/checkout/route.ts -- the same environment-aware pattern
+   * already used for Supabase OAuth's redirectTo, never hardcoded. */
+  webhookUrl: string;
 }
 
 export interface CheckoutSession {
