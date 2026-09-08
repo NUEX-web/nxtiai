@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Menu,
   X,
@@ -55,11 +56,32 @@ export default function Navbar() {
     <>
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-ink text-[13px] font-semibold text-canvas">
-              N
-            </span>
-            <span className="text-lg font-semibold tracking-tight text-ink">NXTIAI</span>
+          <Link
+            href="/"
+            className="flex shrink-0 items-center"
+            onClick={() => setIsMenuOpen(false)}
+            aria-label="NXTIAI home"
+          >
+            {/* Full lockup once there's comfortable room for it -- including on
+               most phones, since the mobile header only ever holds the logo and
+               the menu button (product/pricing/auth move into the mobile menu).
+               Only below ~360px does it drop to the icon-only mark instead. */}
+            <Image
+              src="/logo/nxtiai-logo-light.png"
+              alt="NXTIAI"
+              width={1034}
+              height={205}
+              priority
+              className="hidden h-7 w-auto min-[360px]:block sm:h-8"
+            />
+            <Image
+              src="/logo/nxtiai-icon-light.png"
+              alt="NXTIAI"
+              width={500}
+              height={454}
+              priority
+              className="h-8 w-auto min-[360px]:hidden"
+            />
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">

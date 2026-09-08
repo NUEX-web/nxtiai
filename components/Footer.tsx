@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 interface FooterLink {
   label: string;
   href?: string;
@@ -51,7 +53,13 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
           <div>
-            <span className="text-xl font-medium tracking-tight text-contrast-ink">NXTIAI</span>
+            <Image
+              src="/logo/nxtiai-logo-dark.png"
+              alt="NXTIAI"
+              width={1034}
+              height={205}
+              className="h-8 w-auto"
+            />
             <p className="mt-3 max-w-xs text-sm text-contrast-ink-soft">
               Your AI writing workspace.
             </p>

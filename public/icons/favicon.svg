@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Simplified NXTIAI symbol: flat two tone folded N plus graduation cap accent -->
+  <path d="M8 24 L24 24 L24 96 L8 96 Z" fill="#16A34A"/>
+  <path d="M24 24 L40 24 L56 96 L40 96 Z" fill="#16A34A"/>
+  <path d="M56 24 L72 24 L72 96 L56 96 Z" fill="#0F4D33"/>
+  <path d="M8 74 L24 96 L8 96 Z" fill="#0F4D33"/>
+  <g>
+    <path d="M46 4 L76 15 L52 26 L22 15 Z" fill="#16A34A"/>
+    <path d="M52 26 L52 17 L67 11 L67 20 Z" fill="#0F4D33"/>
+    <rect x="72" y="14" width="4.5" height="13" rx="2.2" fill="#16A34A"/>
+  </g>
+</svg>

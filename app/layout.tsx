@@ -21,8 +21,13 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
+  manifest: "/site.webmanifest",
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
