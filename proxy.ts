@@ -21,8 +21,18 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - api/ (route handlers) -- every route under app/api/* already
+     *   creates its own Supabase server client and calls getUser() itself
+     *   (see lib/supabase/server.ts, used by app/api/rewrite/route.ts,
+     *   app/api/checkout/route.ts, etc.), which independently verifies
+     *   and refreshes the session and writes back any refreshed cookies.
+     *   Running the same getUser() check again here first would just be
+     *   a second Supabase Auth network round-trip on top of that one --
+     *   pure added latency on every rewrite/checkout call for no extra
+     *   correctness, since nothing downstream depends on middleware
+     *   having refreshed the cookie before the route handler runs.
      * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
