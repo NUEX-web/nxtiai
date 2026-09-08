@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowRight, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowRight, BrainCircuit, Sparkles } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 
 export default function Hero() {
@@ -105,8 +105,8 @@ export default function Hero() {
             style={{ animationDelay: "1.2s" }}
             aria-hidden="true"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-ai-accent" />
-            Gemini active
+            <BrainCircuit className="h-3.5 w-3.5" aria-hidden="true" />
+            AI engine active
           </div>
         </div>
       </div>
