@@ -75,9 +75,8 @@ export default function AIEngineSection() {
           {/* RIGHT — abstract "engine" visual. No screenshot, no stock photo,
               no vendor mark -- just a pulse composition built from the same
               panel/chip primitives used elsewhere on the page. */}
-          <div className="relative mx-auto flex h-72 w-full max-w-sm items-center justify-center md:h-80">
-            <div className="mint-glow absolute inset-0 rounded-[2rem]" aria-hidden="true" />
-            <div className="panel relative flex h-56 w-56 items-center justify-center rounded-full border-ai-accent-soft-line bg-ai-accent-soft md:h-64 md:w-64">
+          <div className="relative mx-auto flex h-80 w-full max-w-sm items-center justify-center md:h-96">
+            <div className="relative flex h-52 w-52 items-center justify-center rounded-full border border-ai-accent-soft-line bg-ai-accent-soft shadow-sm md:h-60 md:w-60">
               <span
                 className="animate-pulse-ring absolute inset-0 rounded-full border border-ai-accent"
                 aria-hidden="true"
