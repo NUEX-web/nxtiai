@@ -1,7 +1,7 @@
 import { GoogleGenAI, ApiError } from "@google/genai";
 import { LANGUAGE_OPTIONS } from "@/lib/modes";
 import { UpstreamProviderError } from "../errors";
-import type { ProviderResult, ResolvedRewriteRequest, RewriteProvider } from "../model-config";
+import type { ResolvedRewriteRequest, RewriteProvider } from "../model-config";
 
 /**
  * Real AI provider backed by Google's Gemini API via the official
@@ -25,10 +25,12 @@ const MODEL_NAME_FALLBACK = "gemini-3.6-flash";
  * Hard ceiling on how long a single Gemini request may run.
  *
  * Without this, a slow/stuck upstream call can leave the client's "Rewrite"
- * button spinning indefinitely with no way to recover short of reloading —
+ * button spinning indefinitely with no way to recover short of reloading --
  * the server-side call never resolves, so nothing (rate limiter, error
  * handler, UI) ever gets to run. Aborting past this point lets the request
- * fail loudly with a real, honest error instead of hanging.
+ * fail loudly with a real, honest error instead of hanging. This bounds
+ * the whole stream, not just the time-to-first-chunk -- a generation that
+ * starts fine but stalls partway through still gets cut off.
  */
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -66,6 +68,50 @@ function buildSystemInstruction(request: ResolvedRewriteRequest): string {
   return lines.join("\n");
 }
 
+/**
+ * Maps any error from the Gemini SDK to a clear, actionable
+ * UpstreamProviderError and throws it. Shared between stream setup and
+ * mid-stream iteration so both failure points get identical, already-
+ * verified error messages instead of two copies drifting apart.
+ *
+ * AbortSignal.timeout() rejects with a DOMException named "TimeoutError"
+ * (also matches a manually aborted fetch's "AbortError" as a defensive
+ * fallback). ApiError carries an HTTP status (401/403 = bad key or API
+ * not enabled, 404 = model not found/unavailable for this key, 429 =
+ * quota) which is the single most useful diagnostic signal here. Raw SDK
+ * errors (which may include request metadata) are never surfaced to the
+ * client -- only a redacted, generic trace goes to the server log.
+ */
+function mapGeminiError(error: unknown): never {
+  if (error instanceof UpstreamProviderError) {
+    throw error;
+  }
+
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+    console.error(`[gemini-provider] request aborted after ${REQUEST_TIMEOUT_MS}ms timeout`);
+    throw new UpstreamProviderError("The AI provider took too long to respond. Please try again.");
+  }
+
+  if (error instanceof ApiError) {
+    console.error(
+      "[gemini-provider] request failed: status=" + error.status + " message=" + redact(error.message)
+    );
+  } else {
+    console.error(
+      "[gemini-provider] request failed:",
+      error instanceof Error ? redact(error.message) : "unknown error"
+    );
+  }
+
+  throw new UpstreamProviderError(
+    error instanceof ApiError
+      ? `Gemini API error (status ${error.status}). ${redact(error.message)}`
+      : error instanceof Error
+        ? redact(error.message)
+        : "Unknown Gemini error."
+  );
+}
+
 export class GeminiRewriteProvider implements RewriteProvider {
   private client: GoogleGenAI | null = null;
 
@@ -82,75 +128,47 @@ export class GeminiRewriteProvider implements RewriteProvider {
     return this.client;
   }
 
-  async rewrite(request: ResolvedRewriteRequest): Promise<ProviderResult> {
+  async *rewriteStream(request: ResolvedRewriteRequest): AsyncGenerator<string, void, unknown> {
     const modelName = request.modelConfig.model || MODEL_NAME_FALLBACK;
 
+    let stream: AsyncGenerator<{ text?: string }>;
     try {
       const client = this.getClient();
-      const response = await client.models.generateContent({
+      stream = await client.models.generateContentStream({
         model: modelName,
         contents: request.text,
         config: {
           systemInstruction: buildSystemInstruction(request),
           temperature: request.modelConfig.temperature,
-          // AbortSignal.timeout rejects the call once REQUEST_TIMEOUT_MS
-          // elapses, surfacing as a DOMException with name "TimeoutError"
-          // (caught and mapped to a clear message below) rather than
-          // leaving the request pending forever.
           abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         },
       });
-
-      const text = response.text;
-      if (!text) {
-        throw new UpstreamProviderError("The writing provider returned an empty result.");
-      }
-
-      return { result: text };
     } catch (error) {
-      if (error instanceof UpstreamProviderError) {
-        throw error;
-      }
+      mapGeminiError(error);
+    }
 
-      // AbortSignal.timeout() rejects with a DOMException named
-      // "TimeoutError" (also matches a manually aborted fetch's
-      // "AbortError" as a defensive fallback) — map it to a clear,
-      // actionable message instead of falling through to the generic
-      // "unknown error" branch below.
-      if (
-        error instanceof Error &&
-        (error.name === "TimeoutError" || error.name === "AbortError")
-      ) {
-        console.error(
-          `[gemini-provider] request aborted after ${REQUEST_TIMEOUT_MS}ms timeout`
-        );
-        throw new UpstreamProviderError(
-          "The AI provider took too long to respond. Please try again."
-        );
+    // No special-casing for "failed before vs. after some output" here --
+    // mapGeminiError() always throws the same way regardless of how much
+    // (if any) real text was already yielded. It's the caller (the route
+    // handler) that decides what to do with a rejection depending on
+    // whether it happens on the very first pull (still safe to return a
+    // normal JSON error response) or a later one (a stream already
+    // committed to the client, handled there with an in-band marker).
+    let yieldedAny = false;
+    try {
+      for await (const chunk of stream) {
+        const text = chunk.text;
+        if (text) {
+          yieldedAny = true;
+          yield text;
+        }
       }
+    } catch (error) {
+      mapGeminiError(error);
+    }
 
-      // Never surface raw SDK errors (which may include request metadata)
-      // to the client - log a redacted, generic trace server-side only.
-      // ApiError carries an HTTP status (401/403 = bad key or API not
-      // enabled, 404 = model not found/unavailable for this key, 429 =
-      // quota) which is the single most useful diagnostic signal here.
-      if (error instanceof ApiError) {
-        console.error(
-          "[gemini-provider] request failed: status=" + error.status + " message=" + redact(error.message)
-        );
-      } else {
-        console.error(
-          "[gemini-provider] request failed:",
-          error instanceof Error ? redact(error.message) : "unknown error"
-        );
-      }
-      throw new UpstreamProviderError(
-  error instanceof ApiError
-    ? `Gemini API error (status ${error.status}). ${redact(error.message)}`
-    : error instanceof Error
-      ? redact(error.message)
-      : "Unknown Gemini error."
-);
+    if (!yieldedAny) {
+      throw new UpstreamProviderError("The writing provider returned an empty result.");
     }
   }
 }

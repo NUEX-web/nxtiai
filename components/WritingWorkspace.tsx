@@ -28,7 +28,13 @@ import {
 import { EXAMPLE_ORIGINAL } from "@/lib/mock-ai";
 import { diffWords } from "@/lib/diff-words";
 
-type Status = "idle" | "loading" | "success" | "error";
+type Status = "idle" | "loading" | "streaming" | "success" | "error";
+
+// Must match the server's STREAM_ERROR_MARKER in app/api/rewrite/route.ts
+// exactly -- it can't be imported directly since that file is server-only.
+// Written into the stream only when generation fails partway through, so
+// a partial result is never silently shown as if it were the full one.
+const STREAM_ERROR_MARKER = "\u0000NXTIAI_STREAM_ERROR\u0000";
 
 // A request past 30s is aborted server-side (see gemini-provider.ts);
 // giving the client a little headroom past that means a real server
@@ -47,6 +53,12 @@ function statusLabelForElapsed(elapsedMs: number): string {
   if (elapsedMs < 3000) return "Thinking…";
   if (elapsedMs < 15000) return "Rewriting…";
   return "Almost there…";
+}
+
+/** Label for the Rewrite button/live region once real text is arriving --
+ * distinct from the pre-first-token "Thinking…" progression above. */
+function statusLabelForStatus(status: Status, elapsedMs: number): string {
+  return status === "streaming" ? "Writing…" : statusLabelForElapsed(elapsedMs);
 }
 
 interface WritingWorkspaceProps {
@@ -77,6 +89,7 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
   const [language, setLanguage] = useState<LanguageId>("en");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [warningMessage, setWarningMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -97,8 +110,8 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
   const resultCharCount = result.length;
 
   const diffTokens = useMemo(
-    () => (compareOpen && result ? diffWords(original, result) : null),
-    [compareOpen, result, original]
+    () => (compareOpen && status === "success" && result ? diffWords(original, result) : null),
+    [compareOpen, status, result, original]
   );
 
   const runRewrite = useCallback(
@@ -109,6 +122,8 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
 
       setStatus("loading");
       setErrorMessage("");
+      setWarningMessage("");
+      setResult("");
       setElapsedMs(0);
 
       const startedAt = Date.now();
@@ -125,13 +140,48 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
           signal: controller.signal,
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
+          const data = await response.json().catch(() => null);
           throw new Error(data?.error?.message ?? "Something went wrong. Try rewriting again.");
         }
 
-        setResult(data.result);
+        if (!response.body) {
+          // No streaming support in this environment -- fall back to
+          // reading the whole response at once rather than failing.
+          const whole = await response.text();
+          setResult(whole.trim());
+          setStatus("success");
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let sawFirstChunk = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          if (!sawFirstChunk) {
+            sawFirstChunk = true;
+            setStatus("streaming");
+          }
+          setResult(buffer);
+        }
+        buffer += decoder.decode();
+
+        const markerIndex = buffer.indexOf(STREAM_ERROR_MARKER);
+        if (markerIndex !== -1) {
+          setResult(buffer.slice(0, markerIndex).trim());
+          setWarningMessage(
+            "Connection interrupted partway through — showing a partial result. Click Regenerate for the full rewrite."
+          );
+        } else {
+          setResult(buffer.trim());
+        }
+
         setStatus("success");
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -172,6 +222,7 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
     setResult("");
     setStatus("idle");
     setErrorMessage("");
+    setWarningMessage("");
     setCompareOpen(false);
   }, []);
 
@@ -179,6 +230,7 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
     setOriginal(EXAMPLE_ORIGINAL);
     setStatus("idle");
     setErrorMessage("");
+    setWarningMessage("");
   }, []);
 
   const handlePaste = useCallback(async () => {
@@ -283,6 +335,11 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
               {errorMessage}
             </p>
           )}
+          {status === "success" && warningMessage && (
+            <p role="status" className="mt-2 text-sm text-amber-600">
+              {warningMessage}
+            </p>
+          )}
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <button
@@ -306,15 +363,15 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
             <button
               type="button"
               onClick={handleRewrite}
-              disabled={status === "loading"}
+              disabled={status === "loading" || status === "streaming"}
               className="ml-auto flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-strong disabled:cursor-wait disabled:opacity-70"
             >
-              {status === "loading" ? (
+              {status === "loading" || status === "streaming" ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
               )}
-              {status === "loading" ? statusLabelForElapsed(elapsedMs) : "Rewrite"}
+              {status === "loading" || status === "streaming" ? statusLabelForStatus(status, elapsedMs) : "Rewrite"}
             </button>
           </div>
         </div>
@@ -323,7 +380,7 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
         <div className="workspace-output panel flex flex-col p-4 md:p-5">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-medium text-ink">Result</span>
-            {result && status !== "loading" && (
+            {result && status === "success" && (
               <span className="text-xs text-ink-faint">
                 {resultWordCount} words · {resultCharCount} characters
               </span>
@@ -361,8 +418,11 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
                     )}
                   </p>
                 ) : (
-                  <p className="reveal-line whitespace-pre-wrap pr-4 text-[15px] leading-relaxed text-ink">
+                  <p className="whitespace-pre-wrap pr-4 text-[15px] leading-relaxed text-ink" aria-live={status === "streaming" ? "polite" : undefined}>
                     {result}
+                    {status === "streaming" && (
+                      <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-accent align-text-bottom" aria-hidden="true" />
+                    )}
                   </p>
                 )}
               </>
@@ -382,7 +442,7 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
             )}
           </div>
 
-          {result && status !== "loading" && (
+          {result && status === "success" && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"

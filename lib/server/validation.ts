@@ -56,7 +56,7 @@ export function parseRewriteRequest(body: unknown): RewriteRequestInput {
  * before it reaches the client. Catches empty output, runaway/garbage
  * length, and stray control characters rather than passing them through.
  */
-const CONTROL_CHAR_PATTERN = /[\u0000-\u0008\u000e-\u001f]/;
+export const CONTROL_CHAR_PATTERN = /[\u0000-\u0008\u000e-\u001f]/;
 
 export function validateProviderResponse(result: string, inputText: string): string {
   const trimmed = result.trim();

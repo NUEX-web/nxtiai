@@ -12,7 +12,7 @@ import { GeminiRewriteProvider } from "./providers/gemini-provider";
  * This file maps each id to an actual provider + model + parameters, and
  * defines the single interface every provider implementation (mock or
  * real) must satisfy. Swapping providers means writing a class that
- * implements RewriteProvider and pointing MODEL_CONFIG at it — the route
+ * implements RewriteProvider and pointing MODEL_CONFIG at it -- the route
  * handler and everything upstream of it never changes.
  */
 export interface ResolvedRewriteRequest {
@@ -21,7 +21,7 @@ export interface ResolvedRewriteRequest {
   modeConfig: ModeConfig;
   // string, not VoiceId: voice-profiles.ts resolves both the built-in
   // voice ids and arbitrary Supabase-backed custom voice ids (see
-  // resolveVoiceProfile) — this field isn't limited to the built-in union.
+  // resolveVoiceProfile) -- this field isn't limited to the built-in union.
   voice: string;
   voiceProfile: VoiceProfile;
   aiModel: AiModelId;
@@ -29,19 +29,31 @@ export interface ResolvedRewriteRequest {
   language: LanguageId;
 }
 
-export interface ProviderResult {
-  result: string;
-}
-
 export interface RewriteProvider {
-  rewrite(request: ResolvedRewriteRequest): Promise<ProviderResult>;
+  /**
+   * Streams the rewritten text as it's generated, chunk by chunk -- the
+   * concatenation of every yielded string is the full result. There is
+   * no separate non-streaming method: this is what lets the writer tool
+   * show real text within a few hundred ms instead of making the user
+   * wait out the whole generation before anything appears.
+   *
+   * Implementations should throw before yielding anything if the
+   * request fails outright (bad key, rate limit, timeout, empty result)
+   * so the route handler can still return a normal JSON error response
+   * for those cases -- only once real content starts flowing does the
+   * response commit to being a stream.
+   */
+  rewriteStream(request: ResolvedRewriteRequest): AsyncGenerator<string, void, unknown>;
 }
 
 /**
  * Development stand-in. Delegates to the existing mock rewriting logic in
  * lib/mock-ai.ts, which already simulates realistic provider latency via
  * its internal delay. Kept as the automatic fallback whenever a real
- * provider isn't configured (see getProvider below) — never removed.
+ * provider isn't configured (see getProvider below) -- never removed.
+ * Chunks its output by word (with a small per-word delay) so the
+ * dev/fallback experience still looks and feels like a real stream
+ * instead of pasting the whole thing in at once.
  *
  * NOTE: voiceProfile and modelConfig are threaded through end-to-end (and
  * available here) but the mock transform only varies its output by
@@ -49,14 +61,22 @@ export interface RewriteProvider {
  * (Gemini) provider, where these fields become actual prompt content.
  */
 export class MockRewriteProvider implements RewriteProvider {
-  async rewrite({ text, mode }: ResolvedRewriteRequest): Promise<ProviderResult> {
+  async *rewriteStream({ text, mode }: ResolvedRewriteRequest): AsyncGenerator<string, void, unknown> {
+    let full: string;
     try {
-      const result = await mockRewrite(text, { mode });
-      return { result };
+      full = await mockRewrite(text, { mode });
     } catch (error) {
       throw new UpstreamProviderError(
         error instanceof Error ? error.message : "Mock provider failed unexpectedly."
       );
+    }
+
+    const pieces = full.split(/(\s+)/).filter(Boolean);
+    for (const piece of pieces) {
+      yield piece;
+      if (piece.trim()) {
+        await new Promise((resolve) => setTimeout(resolve, 18));
+      }
     }
   }
 }
@@ -64,7 +84,7 @@ export class MockRewriteProvider implements RewriteProvider {
 /**
  * "provider" is intentionally a superset of what's wired up today.
  * openai/anthropic exist here so the rest of the app (UI, routing) can be
- * written against the full set of providers now — see getProvider() below,
+ * written against the full set of providers now -- see getProvider() below,
  * which currently falls back to the mock provider for both since no
  * OpenAIRewriteProvider/AnthropicRewriteProvider class exists yet. Adding
  * one later is a change to getProvider() alone.
@@ -90,7 +110,7 @@ let geminiProviderInstance: GeminiRewriteProvider | null = null;
  * Whether a given provider has its API key present in the server
  * environment. This is the single source of truth both getProvider() (to
  * decide what actually runs) and the UI (to decide what to show as
- * available vs. "Coming soon") read from — never duplicate this check.
+ * available vs. "Coming soon") read from -- never duplicate this check.
  */
 export function isProviderConfigured(provider: ProviderId): boolean {
   switch (provider) {
@@ -120,8 +140,8 @@ function getGeminiProvider(): RewriteProvider {
 /**
  * Returns the provider instance for a given model id. Falls back to the
  * mock provider whenever the configured provider for that id isn't
- * actually available (no API key set, or — for openai/anthropic today —
- * no provider implementation exists yet) — the app keeps working with
+ * actually available (no API key set, or -- for openai/anthropic today --
+ * no provider implementation exists yet) -- the app keeps working with
  * mock output rather than failing every request.
  */
 export function getProvider(aiModel: AiModelId): RewriteProvider {
@@ -132,7 +152,7 @@ export function getProvider(aiModel: AiModelId): RewriteProvider {
     case "openai":
     case "anthropic":
       // Provider classes land in Phase 2. Routing already resolves here
-      // correctly today — only this case needs a new branch when they do.
+      // correctly today -- only this case needs a new branch when they do.
       return mockProviderInstance;
     case "mock":
     default:
@@ -151,11 +171,11 @@ export function getModelAvailability(aiModel: AiModelId): boolean {
 }
 
 /**
- * The model name actually used to serve a request for this aiModel id —
+ * The model name actually used to serve a request for this aiModel id --
  * as opposed to MODEL_CONFIG[aiModel].model, which is only the *target*
  * model. These differ exactly when a real provider is configured but
  * unavailable and the request silently fell back to the mock; callers
- * (the API response's meta.model field) should report this, not the
+ * (the API response's X-Model header) should report this, not the
  * target, so the client is never told Gemini ran when it didn't.
  */
 export function resolveActiveModelName(aiModel: AiModelId): string {
@@ -166,7 +186,7 @@ export function resolveActiveModelName(aiModel: AiModelId): string {
   return config.model;
 }
 
-/** Source of truth for "is this a real model id" — used by request validation. */
+/** Source of truth for "is this a real model id" -- used by request validation. */
 export function isKnownModel(value: string): value is AiModelId {
   return Object.prototype.hasOwnProperty.call(MODEL_CONFIG, value);
 }
