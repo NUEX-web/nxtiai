@@ -53,8 +53,17 @@ function normalizePdfText(raw: string): string {
 }
 
 async function extractPdf(buffer: Buffer): Promise<ExtractionResult> {
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  // pdf-parse's default CanvasFactory (DOMCanvasFactory) is browser-only --
+  // it touches DOMMatrix, which doesn't exist in the Node.js serverless
+  // runtime and crashes every PDF upload with "ReferenceError: DOMMatrix is
+  // not defined" the moment pdf-parse is used. pdf-parse/worker ships a
+  // Node-compatible CanvasFactory (backed by @napi-rs/canvas) for exactly
+  // this case; it must be imported and passed explicitly, since it isn't
+  // the default. See next.config.ts's serverExternalPackages for the other
+  // half of this fix (keeping pdf-parse out of Turbopack's bundle so this
+  // actually resolves at runtime instead of being inlined).
+  const [{ PDFParse }, { CanvasFactory }] = await Promise.all([import("pdf-parse"), import("pdf-parse/worker")]);
+  const parser = new PDFParse({ data: new Uint8Array(buffer), CanvasFactory });
   try {
     const result = await parser.getText();
     const text = normalizePdfText(result.text ?? "");
