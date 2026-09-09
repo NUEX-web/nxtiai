@@ -16,6 +16,7 @@ import { chunkDocument } from "@/lib/server/documents/chunk";
 import { parseDocumentRewriteSettings } from "@/lib/server/documents/validation";
 import {
   ACCEPTED_MIME_TYPES,
+  DOCUMENT_CHUNK_CHARS,
   MAX_DOCUMENT_CHARS,
   MAX_UPLOAD_BYTES,
   MIN_DOCUMENT_CHARS,
@@ -110,7 +111,12 @@ export async function POST(request: Request): Promise<Response> {
     const plan = await getUserPlan(supabase, user.id);
     const planLimits = PLAN_CONFIG[plan].limits;
 
-    const chunks = chunkDocument(extraction.text, planLimits.maxCharsPerRequest);
+    // Document chunk size is fixed (DOCUMENT_CHUNK_CHARS), independent of
+    // the plan's own maxCharsPerRequest -- see the constant's comment in
+    // lib/server/documents/limits.ts for why reusing that cap here (the
+    // original behavior) made document processing needlessly slow,
+    // especially on the Free plan.
+    const chunks = chunkDocument(extraction.text, DOCUMENT_CHUNK_CHARS);
 
     // Every processed chunk consumes one unit of the same monthly rewrite
     // quota /api/rewrite enforces (each chunk is, mechanically, one
