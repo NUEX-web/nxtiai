@@ -4,13 +4,14 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import AuthModal from "./AuthModal";
+import type { PlanId } from "@/lib/server/plans";
 
 export interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
   avatar_url: string | null;
-  plan_tier: "free" | "pro" | "business";
+  plan_tier: PlanId;
 }
 
 interface AuthContextType {
