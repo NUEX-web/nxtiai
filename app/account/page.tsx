@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AI_MODEL_OPTIONS, LANGUAGE_OPTIONS, VOICE_OPTIONS, WRITING_MODES } from "@/lib/modes";
+import { getUserPlan, getMonthlyRewriteCount } from "@/lib/server/plan-usage";
+import { PLAN_CONFIG } from "@/lib/server/plans";
 
 export const metadata = {
   title: "Your account — NXTIAI",
@@ -30,7 +32,7 @@ export const dynamic = "force-dynamic";
 
 interface ProfileRow {
   full_name: string | null;
-  plan_tier: "free" | "pro" | "business" | null;
+  plan_tier: "free" | "student" | "pro" | "team" | null;
 }
 
 interface RewriteHistoryRow {
@@ -77,6 +79,10 @@ export default async function AccountPage() {
   // data pipeline already existed. Same defensive try/catch pattern as
   // the profile lookup above: a not-yet-provisioned table on a fresh
   // Supabase project must never break this page.
+  const plan = await getUserPlan(supabase, user.id);
+  const planLimits = PLAN_CONFIG[plan].limits;
+  const historyDisplayLimit = planLimits.historyLimit ?? 50;
+
   let history: RewriteHistoryRow[] = [];
   let historyUnavailable = false;
   try {
@@ -85,12 +91,15 @@ export default async function AccountPage() {
       .select("id, mode, voice, ai_model, language, latency_ms, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(historyDisplayLimit);
     if (error) throw error;
     history = data ?? [];
   } catch {
     historyUnavailable = true;
   }
+
+  const monthlyRewriteCount =
+    planLimits.monthlyRewriteQuota !== null ? await getMonthlyRewriteCount(supabase, user.id) : null;
 
   const joined = new Date(user.created_at).toLocaleDateString(undefined, {
     year: "numeric",
@@ -119,13 +128,21 @@ export default async function AccountPage() {
         <div className="flex items-center justify-between px-5 py-4">
           <span className="text-sm text-ink-soft">Plan</span>
           <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold uppercase text-accent-strong">
-            {profile?.plan_tier || "free"}
+            {PLAN_CONFIG[plan].name}
           </span>
         </div>
         <div className="flex items-center justify-between px-5 py-4">
           <span className="text-sm text-ink-soft">Member since</span>
           <span className="text-sm font-medium text-ink">{joined}</span>
         </div>
+        {monthlyRewriteCount !== null && planLimits.monthlyRewriteQuota !== null && (
+          <div className="flex items-center justify-between px-5 py-4">
+            <span className="text-sm text-ink-soft">Rewrites this month</span>
+            <span className="text-sm font-medium text-ink">
+              {monthlyRewriteCount} / {planLimits.monthlyRewriteQuota}
+            </span>
+          </div>
+        )}
       </div>
 
       <div id="usage" className="panel mt-4 p-5">
