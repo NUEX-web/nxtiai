@@ -31,8 +31,22 @@ const MODEL_NAME_FALLBACK = "gemini-3.6-flash";
  * fail loudly with a real, honest error instead of hanging. This bounds
  * the whole stream, not just the time-to-first-chunk -- a generation that
  * starts fine but stalls partway through still gets cut off.
+ *
+ * Was 30_000. Raised after production logs showed legitimate document-
+ * processing chunks (2,800-4,600 chars, well under this pipeline's own
+ * per-chunk cap) being killed by this exact timeout with zero output ever
+ * streamed back -- i.e. Gemini hadn't necessarily failed, our own abort
+ * fired before it had a real chance to respond. The serverless function
+ * this runs in allows up to 300s (see functionMaxDuration in the Vercel
+ * project), so 30s was leaving the vast majority of that budget unused
+ * while aborting calls that may well have succeeded given more time. 90s
+ * gives real headroom while still failing loudly well short of the
+ * platform ceiling, and still bounds the whole stream, not just
+ * time-to-first-chunk. If requests keep timing out even at 90s, that
+ * points to an actual upstream Gemini slowdown/degradation rather than
+ * this ceiling being too tight.
  */
-const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 90_000;
 
 function languageName(languageId: string): string {
   return LANGUAGE_OPTIONS.find((option) => option.id === languageId)?.label ?? languageId;
