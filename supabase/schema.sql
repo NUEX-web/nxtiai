@@ -193,3 +193,53 @@ alter table public.payment_webhook_events enable row level security;
 -- which Supabase uses server-side and which bypasses RLS entirely by
 -- design. That's the point: this ledger is for trusted webhook processing
 -- only, never for anything a browser session could touch.
+
+-- 6. Detector History Table
+--
+-- Mirrors rewrites_history's shape and RLS pattern exactly, but for
+-- AI Detector checks (see app/api/detect/route.ts). Two jobs: lets a
+-- signed-in user's own detector usage be counted for their plan's
+-- monthly quota (lib/server/plans.ts / lib/server/plan-usage.ts), and
+-- gives a real usage record instead of the detector being silently
+-- unmetered. input_text itself is intentionally not stored here (unlike
+-- rewrites_history) -- only what's needed to count usage and show a
+-- verdict trend later.
+create table if not exists public.detector_history (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  input_length integer not null default 0,
+  ai_likelihood_percent integer,
+  verdict text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.detector_history enable row level security;
+
+create policy "Users can view their own detector history."
+  on public.detector_history for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert into their own detector history."
+  on public.detector_history for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own detector history."
+  on public.detector_history for delete
+  using (auth.uid() = user_id);
+
+-- Index used by every monthly quota count (WHERE user_id = ? AND
+-- created_at >= start_of_month) -- see lib/server/plan-usage.ts.
+create index if not exists detector_history_user_created_idx
+  on public.detector_history (user_id, created_at);
+
+create index if not exists rewrites_history_user_created_idx
+  on public.rewrites_history (user_id, created_at);
+
+-- 7. Billing cycle on user_subscriptions
+--
+-- Added for the Student/Pro annual pricing option (see
+-- lib/server/plans.ts, components/PricingSection.tsx). 'monthly' |
+-- 'annual'. Existing rows (all monthly, from before this column existed)
+-- default correctly to 'monthly'.
+alter table public.user_subscriptions
+  add column if not exists billing_cycle text not null default 'monthly';
