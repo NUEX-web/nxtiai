@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getUserPlan, getVoiceProfileCount } from "@/lib/server/plan-usage";
+import { PLAN_CONFIG } from "@/lib/server/plans";
 
 export async function GET() {
   try {
@@ -45,6 +47,22 @@ export async function POST(request: Request) {
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "Voice name is required." }, { status: 400 });
+    }
+
+    // Plan-based limit (lib/server/plans.ts is the single source of
+    // truth) -- same pattern as app/api/rewrite/route.ts.
+    const plan = await getUserPlan(supabase, user.id);
+    const limit = PLAN_CONFIG[plan].limits.voiceProfileLimit;
+    if (limit !== null) {
+      const existingCount = await getVoiceProfileCount(supabase, user.id);
+      if (existingCount >= limit) {
+        return NextResponse.json(
+          {
+            error: `The ${PLAN_CONFIG[plan].name} plan is limited to ${limit} saved voice profile${limit === 1 ? "" : "s"}. Upgrade for more, or delete an existing one first.`,
+          },
+          { status: 402 }
+        );
+      }
     }
 
     const { data: voice, error } = await supabase
