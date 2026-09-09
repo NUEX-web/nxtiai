@@ -2,16 +2,19 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getPaymentProvider } from "@/lib/server/payments/mollie";
-import type { PayablePlanId } from "@/lib/server/payments/provider";
+import type { PayablePlanId, BillingCycle } from "@/lib/server/payments/provider";
+import { PAYABLE_PLAN_IDS } from "@/lib/server/plans";
 import { UnauthorizedError, ValidationError, toErrorResponse } from "@/lib/server/errors";
 
 export const runtime = "nodejs";
 
 const checkoutRequestSchema = z.object({
-  // Business is sold through the "Talk to us" mailto flow on the pricing
-  // page, not checkout -- "pro" is the only payable plan this route
-  // accepts today. See components/PricingPreview.tsx.
-  planId: z.literal("pro"),
+  // Team is sold through the "Talk to us" mailto flow on the pricing
+  // page, not checkout -- only Student and Pro are self-serve payable
+  // plans today. See lib/server/plans.ts (PAYABLE_PLAN_IDS) and
+  // components/PricingSection.tsx.
+  planId: z.enum(PAYABLE_PLAN_IDS as [PayablePlanId, ...PayablePlanId[]]),
+  billingCycle: z.enum(["monthly", "annual"]).default("monthly"),
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -24,6 +27,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       throw new ValidationError('planId must be "pro".');
     }
     const planId = parsed.data.planId as PayablePlanId;
+    const billingCycle = parsed.data.billingCycle as BillingCycle;
 
     const supabase = await createClient();
     const {
@@ -74,6 +78,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const session = await provider.createCheckout({
       userId: user.id,
       planId,
+      billingCycle,
       customerId,
       successUrl: `${origin}/account?checkout=${planId}`,
       cancelUrl: `${origin}/account?checkout=cancelled`,
