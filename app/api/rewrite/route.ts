@@ -4,8 +4,10 @@ import { getProvider, MODEL_CONFIG, resolveActiveModelName } from "@/lib/server/
 import { checkRateLimit, getClientIdentifier } from "@/lib/server/rate-limiter";
 import { recordUsage } from "@/lib/server/usage-tracker";
 import { CONTROL_CHAR_PATTERN, parseRewriteRequest } from "@/lib/server/validation";
-import { RateLimitError, ValidationError, toErrorResponse } from "@/lib/server/errors";
+import { PlanLimitError, RateLimitError, ValidationError, toErrorResponse } from "@/lib/server/errors";
 import { createClient } from "@/lib/supabase/server";
+import { getUserPlan, getMonthlyRewriteCount } from "@/lib/server/plan-usage";
+import { PLAN_CONFIG } from "@/lib/server/plans";
 import type { AiModelId, LanguageId, ModeId } from "@/lib/modes";
 
 export const runtime = "nodejs";
@@ -52,6 +54,30 @@ export async function POST(request: Request): Promise<Response> {
     // Supabase session & custom voice check
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
+    // Plan-based limits (lib/server/plans.ts is the single source of
+    // truth). Anonymous callers are always treated as "free" here --
+    // see getUserPlan. Character-length is checked for everyone; the
+    // monthly rewrite quota can only be enforced for signed-in users,
+    // since it's counted from rewrites_history, which anonymous use
+    // never writes to.
+    const plan = await getUserPlan(supabase, user?.id ?? null);
+    const planLimits = PLAN_CONFIG[plan].limits;
+
+    if (parsed.text.length > planLimits.maxCharsPerRequest) {
+      throw new PlanLimitError(
+        `The ${PLAN_CONFIG[plan].name} plan is limited to ${planLimits.maxCharsPerRequest} characters per rewrite. Upgrade for a higher limit.`
+      );
+    }
+
+    if (user && planLimits.monthlyRewriteQuota !== null) {
+      const usedThisMonth = await getMonthlyRewriteCount(supabase, user.id);
+      if (usedThisMonth >= planLimits.monthlyRewriteQuota) {
+        throw new PlanLimitError(
+          `You've used all ${planLimits.monthlyRewriteQuota} rewrites included in your ${PLAN_CONFIG[plan].name} plan this month. Upgrade for a higher monthly limit.`
+        );
+      }
+    }
 
     let customVoiceRecord: Partial<VoiceProfile> | undefined;
     if (user && voice && !["my-voice", "professional", "academic", "casual", "business"].includes(voice)) {
