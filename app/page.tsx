@@ -8,7 +8,7 @@ import PersonalVoiceSection from "@/components/PersonalVoiceSection";
 import ToolsSection from "@/components/ToolsSection";
 import HowItWorks from "@/components/HowItWorks";
 import TrustSection from "@/components/TrustSection";
-import PricingPreview from "@/components/PricingPreview";
+import PricingSection from "@/components/PricingSection";
 import Footer from "@/components/Footer";
 import AuthErrorBanner from "@/components/AuthErrorBanner";
 import { AI_MODEL_OPTIONS } from "@/lib/modes";
@@ -46,7 +46,7 @@ export default function Home() {
         <ToolsSection />
         <HowItWorks />
         <TrustSection />
-        <PricingPreview />
+        <PricingSection />
       </main>
       <Footer />
     </>
