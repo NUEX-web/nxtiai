@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Loader2, ScanSearch } from "lucide-react";
+import { Loader2, ScanSearch, X } from "lucide-react";
 
 interface DetectionResult {
   aiLikelihoodPercent: number;
@@ -11,14 +11,29 @@ interface DetectionResult {
 
 type Status = "idle" | "loading" | "success" | "error";
 
+interface AIDetectorToolProps {
+  /** Prefills the textarea -- e.g. the workspace editor's current text or
+   * an uploaded document's extracted text, passed in by whatever opened
+   * this tool. Purely a starting value; the user can still edit or clear
+   * it before checking, same as the standalone /ai-detector page. */
+  initialText?: string;
+  /** Renders without the standalone page's heading size/vertical padding
+   * for use inside a modal (see WritingWorkspace's AI Detector button).
+   * The detection logic and result rendering are identical either way --
+   * this only changes layout chrome. */
+  embedded?: boolean;
+  /** Only used when embedded -- shows a close button in the modal header. */
+  onClose?: () => void;
+}
+
 function verdictColor(verdict: DetectionResult["verdict"]): string {
   if (verdict === "Likely AI-generated") return "text-danger";
   if (verdict === "Mixed / uncertain") return "text-amber-600";
   return "text-emerald-600";
 }
 
-export default function AIDetectorTool() {
-  const [text, setText] = useState("");
+export default function AIDetectorTool({ initialText = "", embedded = false, onClose }: AIDetectorToolProps) {
+  const [text, setText] = useState(initialText);
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<DetectionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -59,15 +74,39 @@ export default function AIDetectorTool() {
   }, [text]);
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-20">
-      <h1 className="font-[family-name:var(--font-display)] text-4xl text-ink">AI Detector</h1>
-      <p className="mt-3 text-ink-soft">
-        Paste text below to get an estimate of how likely it is to be AI-generated. This is a
-        genuine estimate, not a verdict — no detector, from any vendor, can verify authorship
-        with full confidence, and results can be wrong in both directions.
-      </p>
+    <div className={embedded ? "flex flex-col" : "mx-auto max-w-2xl px-6 py-20"}>
+      {embedded ? (
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-[family-name:var(--font-display)] text-2xl text-ink">AI Detector</h2>
+            <p className="mt-2 text-sm text-ink-soft">
+              An estimate of how likely this text is AI-generated — not a verdict. Results can be
+              wrong in either direction.
+            </p>
+          </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close AI Detector"
+              className="shrink-0 rounded-full p-1.5 text-ink-faint transition-colors hover:bg-accent-soft hover:text-ink"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <h1 className="font-[family-name:var(--font-display)] text-4xl text-ink">AI Detector</h1>
+          <p className="mt-3 text-ink-soft">
+            Paste text below to get an estimate of how likely it is to be AI-generated. This is a
+            genuine estimate, not a verdict — no detector, from any vendor, can verify authorship
+            with full confidence, and results can be wrong in both directions.
+          </p>
+        </>
+      )}
 
-      <div className="panel mt-8 flex flex-col p-4 md:p-5">
+      <div className={embedded ? "panel mt-4 flex flex-col p-4 md:p-5" : "panel mt-8 flex flex-col p-4 md:p-5"}>
         <label htmlFor="detector-text" className="text-sm font-medium text-ink">
           Text to check
         </label>
