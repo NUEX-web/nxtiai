@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getUserPlan } from "@/lib/server/plan-usage";
+import { PLAN_CONFIG } from "@/lib/server/plans";
 
 export async function GET() {
   try {
@@ -10,12 +12,17 @@ export async function GET() {
       return NextResponse.json({ history: [] });
     }
 
+    // Plan-based cap (lib/server/plans.ts) -- null means unlimited, in
+    // which case 200 is just a sane page size, not a plan restriction.
+    const plan = await getUserPlan(supabase, user.id);
+    const historyLimit = PLAN_CONFIG[plan].limits.historyLimit ?? 200;
+
     const { data: history, error } = await supabase
       .from("rewrites_history")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(historyLimit);
 
     if (error) {
       console.error("Error fetching rewrite history:", error);
