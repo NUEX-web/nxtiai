@@ -41,6 +41,12 @@ export class RateLimitError extends AppError {
   }
 }
 
+export class PlanLimitError extends AppError {
+  constructor(message: string) {
+    super("PLAN_LIMIT_REACHED", message, 402);
+  }
+}
+
 export class UpstreamProviderError extends AppError {
   constructor(message = "The writing provider returned an unexpected response.") {
     super("UPSTREAM_PROVIDER_ERROR", message, 502);
