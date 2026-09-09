@@ -1,5 +1,5 @@
 import { MODE_CONFIG } from "@/lib/server/mode-config";
-import { resolveVoiceProfile, type VoiceProfile } from "@/lib/server/voice-profiles";
+import { resolveVoiceProfile } from "@/lib/server/voice-profiles";
 import { getProvider, MODEL_CONFIG, resolveActiveModelName } from "@/lib/server/model-config";
 import { checkRateLimit, getClientIdentifier } from "@/lib/server/rate-limiter";
 import { recordUsage } from "@/lib/server/usage-tracker";
@@ -8,6 +8,7 @@ import { PlanLimitError, RateLimitError, ValidationError, toErrorResponse } from
 import { createClient } from "@/lib/supabase/server";
 import { getUserPlan, getMonthlyRewriteCount } from "@/lib/server/plan-usage";
 import { PLAN_CONFIG } from "@/lib/server/plans";
+import { loadCustomVoiceRecord } from "@/lib/server/custom-voice";
 import type { AiModelId, LanguageId, ModeId } from "@/lib/modes";
 
 export const runtime = "nodejs";
@@ -79,26 +80,7 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    let customVoiceRecord: Partial<VoiceProfile> | undefined;
-    if (user && voice && !["my-voice", "professional", "academic", "casual", "business"].includes(voice)) {
-      const { data: dbVoice } = await supabase
-        .from("custom_voices")
-        .select("*")
-        .eq("id", voice)
-        .eq("user_id", user.id)
-        .single();
-
-      if (dbVoice) {
-        customVoiceRecord = {
-          label: dbVoice.name,
-          tone: dbVoice.tone,
-          formality: dbVoice.formality as "low" | "neutral" | "high",
-          vocabularyLevel: dbVoice.vocabulary_level as "simple" | "standard" | "advanced",
-          customInstructions: dbVoice.custom_instructions || undefined,
-        };
-      }
-    }
-
+    const customVoiceRecord = await loadCustomVoiceRecord(supabase, user?.id, voice);
     const voiceProfile = resolveVoiceProfile(voice, customVoiceRecord);
     const modelConfig = MODEL_CONFIG[aiModel];
     const provider = getProvider(aiModel);
