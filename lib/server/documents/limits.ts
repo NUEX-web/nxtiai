@@ -34,6 +34,27 @@ export const MAX_DOCUMENT_CHARS = 320_000; // ~45,000-50,000 words
 /** Below this, there's nothing meaningful to process. */
 export const MIN_DOCUMENT_CHARS = 20;
 
+/** Chunk size used to split a document for processing (see
+ * lib/server/documents/chunk.ts and app/api/documents/upload/route.ts).
+ * Deliberately NOT the plan's maxCharsPerRequest -- that cap (as low as
+ * 600 chars on the Free plan) governs a single manual /api/rewrite
+ * request and produces a workable amount of output for one on-screen
+ * rewrite. Reusing it here as the document chunk size was the original
+ * (buggy) behavior: it made chunk count, and therefore the number of
+ * sequential AI round trips runDocumentProcessing has to make (see
+ * components/WritingWorkspace.tsx), scale inversely with how cheap the
+ * user's plan is -- a Free-plan user processing a normal-length document
+ * could need 50-100+ sequential chunks, each a full round trip, which is
+ * what actually produced the "slow / hanging" upload experience. 5,000
+ * chars is already proven safe for a single Gemini call in this exact
+ * pipeline (it's the Pro/Team plan's own maxCharsPerRequest for manual
+ * rewrites), so using it uniformly for every plan's document chunking
+ * cuts round trips roughly 8x for Free-plan users with no new risk, and
+ * as a side effect lets the monthly rewrite quota actually cover a
+ * real document instead of exhausting after ~1,850 characters worth of
+ * 600-char chunks. */
+export const DOCUMENT_CHUNK_CHARS = 5000;
+
 /** Estimate used only for formats with no native page concept (DOCX, DOC,
  * TXT). PDF page counts come from the file itself via pdf-parse and are
  * exact, not estimated -- see extract.ts. 275 words/page is the standard
