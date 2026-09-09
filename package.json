@@ -15,9 +15,12 @@
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "lucide-react": "^1.38.0",
+    "mammoth": "^1.12.2",
     "next": "16.3.4",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "word-extractor": "^1.0.4",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -25,6 +28,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/word-extractor": "^1.0.6",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
