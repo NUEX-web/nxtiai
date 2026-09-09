@@ -2,15 +2,10 @@
  * Provider-neutral payment/subscription contract.
  *
  * NXTIAI's payment provider is Mollie — never Stripe. This file defines
- * only the *shape* every payment provider must satisfy; it contains no
- * implementation, no Mollie SDK usage, and no network calls. That's
- * intentional and matches where the project actually is right now:
- *
- *   Phase 1 (this file): schema + this contract only.
- *   Phase 2 (not yet built): a real MollieProvider implementing this
- *     interface — checkout-session creation, payment/subscription status
- *     lookups, and verified webhook handling, using the Mollie SDK and a
- *     server-only MOLLIE_API_KEY.
+ * only the *shape* every payment provider must satisfy — the real
+ * implementation (checkout-session creation, subscription creation,
+ * verified webhook handling) lives in ./mollie.ts and satisfies this
+ * interface exactly.
  *
  * Server-only by construction: nothing here is exported from a "use
  * client" file, nothing here reads a NEXT_PUBLIC_ variable, and no route
@@ -20,17 +15,23 @@
  * page, the account page, or any other UI.
  */
 
+import type { PlanId, PayablePlanId } from "../plans";
+
 export type PaymentProviderId = "mollie";
 
-/** Mirrors the plans already shown on the pricing page — see
- * components/PricingPreview.tsx. "free" never goes through checkout. */
-export type SubscriptionPlanId = "free" | "pro" | "business";
+/** Stable internal plan ids -- the single source of truth for pricing,
+ * limits, and marketing copy is lib/server/plans.ts; this file only
+ * re-exports the type shape payment code needs. "free" never goes
+ * through checkout. "team" is not payable via self-serve checkout yet --
+ * see PayablePlanId and lib/server/plans.ts's TEAM_VOLUME_TIERS. */
+export type { PlanId as SubscriptionPlanId, PayablePlanId } from "../plans";
 
-export type PayablePlanId = Exclude<SubscriptionPlanId, "free">;
+export type BillingCycle = "monthly" | "annual";
 
 export interface CreateCheckoutParams {
   userId: string;
   planId: PayablePlanId;
+  billingCycle: BillingCycle;
   /** The provider-side customer this payment (and the mandate it
    * creates) belongs to. Required: every payable plan is a recurring
    * subscription now, and Mollie's mandate/sequenceType flow is always
@@ -66,6 +67,7 @@ export interface CreateSubscriptionParams {
   customerId: string;
   userId: string;
   planId: PayablePlanId;
+  billingCycle: BillingCycle;
   /** Same webhookUrl pattern as CreateCheckoutParams -- every recurring
    * charge this subscription generates is delivered to this endpoint,
    * exactly like the payment that created the mandate. */
@@ -91,7 +93,7 @@ export interface PaymentStatus {
    * since that mapping is Phase 2 work once the real Mollie statuses in
    * play are known and decided. */
   status: string;
-  planId: SubscriptionPlanId;
+  planId: PlanId;
 }
 
 export interface WebhookEvent {
@@ -104,8 +106,7 @@ export interface WebhookEvent {
 
 /**
  * Every payment provider (Mollie today; anything else only if NXTIAI ever
- * needs one later) implements this. No implementation of this interface
- * exists yet — see the phase note above.
+ * needs one later) implements this — see MollieProvider in ./mollie.ts.
  */
 export interface PaymentProvider {
   readonly id: PaymentProviderId;

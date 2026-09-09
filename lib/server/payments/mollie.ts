@@ -1,4 +1,5 @@
 import type {
+  BillingCycle,
   CheckoutSession,
   CreateCheckoutParams,
   CreateCustomerParams,
@@ -10,16 +11,27 @@ import type {
   WebhookEvent,
 } from "./provider";
 import { UpstreamProviderError } from "../errors";
+import { PLAN_CONFIG, type PayablePlanId } from "../plans";
 
 const MOLLIE_API_BASE = "https://api.mollie.com/v2";
 
-// Fixed pricing today -- mirrors the Pro plan shown on the pricing page
-// (components/PricingPreview.tsx). Only one payable plan exists right
-// now; a real catalog (or Mollie order line items) is future work if
-// Business ever moves off its "talk to us" flow.
-const PLAN_PRICES: Record<string, { value: string; description: string }> = {
-  pro: { value: "12.00", description: "NXTIAI Pro plan" },
-};
+/** Resolves the exact EUR amount + description Mollie is charged for a
+ * given plan/billing-cycle combination. Reads prices from
+ * lib/server/plans.ts -- the single source of truth also driving the
+ * pricing page -- so a price change there is automatically reflected in
+ * every checkout and renewal charge, never a second place to update. */
+function resolvePlanPrice(
+  planId: PayablePlanId,
+  billingCycle: BillingCycle
+): { value: string; description: string } {
+  const plan = PLAN_CONFIG[planId];
+  if (!plan.price) {
+    throw new UpstreamProviderError(`No price configured for plan "${planId}".`);
+  }
+  const value = billingCycle === "annual" ? plan.price.annualValue : plan.price.monthlyValue;
+  const cadence = billingCycle === "annual" ? "annual" : "monthly";
+  return { value, description: `NXTIAI ${plan.name} plan (${cadence})` };
+}
 
 function getApiKey(): string {
   const key = process.env.MOLLIE_API_KEY;
@@ -59,7 +71,7 @@ async function mollieRequest<T>(path: string, init: RequestInit = {}): Promise<T
 interface MolliePaymentResponse {
   id: string;
   status: string;
-  metadata: { userId?: string; planId?: string } | null;
+  metadata: { userId?: string; planId?: string; billingCycle?: string } | null;
   customerId?: string | null;
   subscriptionId?: string | null;
   sequenceType?: string | null;
@@ -105,10 +117,7 @@ class MollieProvider implements PaymentProvider {
   }
 
   async createCheckout(params: CreateCheckoutParams): Promise<CheckoutSession> {
-    const plan = PLAN_PRICES[params.planId];
-    if (!plan) {
-      throw new UpstreamProviderError(`No price configured for plan "${params.planId}".`);
-    }
+    const plan = resolvePlanPrice(params.planId, params.billingCycle);
 
     const payment = await mollieRequest<MolliePaymentResponse>("/payments", {
       method: "POST",
@@ -128,7 +137,12 @@ class MollieProvider implements PaymentProvider {
         // this page load is never itself treated as proof of payment.
         redirectUrl: params.successUrl,
         webhookUrl: params.webhookUrl,
-        metadata: { userId: params.userId, planId: params.planId },
+        // billingCycle is forwarded here (mirroring userId/planId) so
+        // the webhook handler knows the correct renewal interval --
+        // Mollie carries this metadata onto every payment/subscription
+        // it creates from this one, including recurring charges that
+        // never go through this route again.
+        metadata: { userId: params.userId, planId: params.planId, billingCycle: params.billingCycle },
       }),
     });
 
@@ -150,10 +164,8 @@ class MollieProvider implements PaymentProvider {
   }
 
   async createSubscription(params: CreateSubscriptionParams): Promise<ProviderSubscription> {
-    const plan = PLAN_PRICES[params.planId];
-    if (!plan) {
-      throw new UpstreamProviderError(`No price configured for plan "${params.planId}".`);
-    }
+    const plan = resolvePlanPrice(params.planId, params.billingCycle);
+    const interval = params.billingCycle === "annual" ? "12 months" : "1 month";
 
     const subscription = await mollieRequest<MollieSubscriptionResponse>(
       `/customers/${params.customerId}/subscriptions`,
@@ -161,15 +173,16 @@ class MollieProvider implements PaymentProvider {
         method: "POST",
         body: JSON.stringify({
           amount: { currency: "EUR", value: plan.value },
-          interval: "1 month",
-          description: `${plan.description} -- monthly renewal`,
+          interval,
+          description: `${plan.description} -- renews every ${interval}`,
           webhookUrl: params.webhookUrl,
           // Mollie forwards subscription metadata onto every payment it
           // generates -- this is what lets the webhook handler identify
-          // *which user* a recurring payment (which carries no metadata
-          // of its own otherwise) belongs to, the same way userId/planId
-          // identify the original mandate-creating payment.
-          metadata: { userId: params.userId, planId: params.planId },
+          // *which user*, *which plan*, and *which billing cycle* a
+          // recurring payment (which carries no metadata of its own
+          // otherwise) belongs to, the same way the original
+          // mandate-creating payment's metadata does.
+          metadata: { userId: params.userId, planId: params.planId, billingCycle: params.billingCycle },
         }),
       }
     );
