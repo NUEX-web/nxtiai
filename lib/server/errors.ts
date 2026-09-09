@@ -32,6 +32,12 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+export class NotFoundError extends AppError {
+  constructor(message = "That item doesn't exist or you don't have access to it.") {
+    super("NOT_FOUND", message, 404);
+  }
+}
+
 export class RateLimitError extends AppError {
   readonly retryAfterMs: number;
 
@@ -56,6 +62,12 @@ export class UpstreamProviderError extends AppError {
 export class InternalError extends AppError {
   constructor(message = "Something went wrong. Try rewriting again.") {
     super("INTERNAL_ERROR", message, 500);
+  }
+}
+
+export class NotImplementedError extends AppError {
+  constructor(message = "This isn't available yet.") {
+    super("NOT_IMPLEMENTED", message, 501);
   }
 }
 
