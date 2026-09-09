@@ -10,6 +10,7 @@ import {
   Loader2,
   RefreshCw,
   Repeat,
+  ScanSearch,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import ModeSelector from "./ModeSelector";
 import FieldSelect from "./FieldSelect";
 import AddProjectMenu from "./AddProjectMenu";
 import DocumentCard, { type DocumentUploadStatus } from "./DocumentCard";
+import AIDetectorTool from "./AIDetectorTool";
 import {
   AI_MODEL_OPTIONS,
   LANGUAGE_OPTIONS,
@@ -136,6 +138,13 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
   const [docState, setDocState] = useState<DocumentState | null>(null);
   const [docUploadElapsedMs, setDocUploadElapsedMs] = useState(0);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
+
+  // AI Detector modal -- reuses AIDetectorTool/api/detect as-is (see that
+  // component), just prefilled from whatever text is currently in the
+  // workspace: the uploaded document's extracted text if there is one,
+  // otherwise the editor's own text. Purely a starting value -- opening
+  // the modal never runs a check on its own.
+  const [detectorOpen, setDetectorOpen] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -643,6 +652,14 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
             />
             <button
               type="button"
+              onClick={() => setDetectorOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-xs font-medium text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
+            >
+              <ScanSearch className="h-3.5 w-3.5" aria-hidden="true" />
+              AI Detector
+            </button>
+            <button
+              type="button"
               onClick={handlePaste}
               className="flex items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-xs font-medium text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
             >
@@ -788,6 +805,18 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
       </div>
 
       <p className="mt-4 text-xs text-ink-faint">Rewrites are generated using NXTIAI&apos;s AI engine.</p>
+
+      {detectorOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm animate-fade-in">
+          <div className="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl md:p-8">
+            <AIDetectorTool
+              initialText={docState?.originalText || original}
+              embedded
+              onClose={() => setDetectorOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }
