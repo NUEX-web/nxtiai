@@ -28,6 +28,7 @@
      specifically about the AI engine/model layer (not the general brand
      color), so it reads as a distinct signal rather than a second brand. */
   --ai-accent: #6366f1;
+  --ai-accent-strong: #4f46e5;
   --ai-accent-soft: #eef2ff;
   --ai-accent-soft-line: #e0e7ff;
 
@@ -74,6 +75,7 @@
   --color-accent-tint: var(--accent-tint);
   --color-mint: var(--mint);
   --color-ai-accent: var(--ai-accent);
+  --color-ai-accent-strong: var(--ai-accent-strong);
   --color-ai-accent-soft: var(--ai-accent-soft);
   --color-ai-accent-soft-line: var(--ai-accent-soft-line);
   --color-success: var(--success);
