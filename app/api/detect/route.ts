@@ -9,10 +9,12 @@ import { PLAN_CONFIG } from "@/lib/server/plans";
 
 export const runtime = "nodejs";
 
-// Absolute ceiling regardless of plan -- matches the Pro plan's
-// maxCharsPerRequest (lib/server/plans.ts). Tighter, plan-aware limits
-// are enforced below once the caller's plan is resolved.
-const TEXT_MAX_LENGTH = 5000;
+// Absolute ceiling regardless of plan -- matches every plan's
+// maxCharsPerDetectorRequest (lib/server/plans.ts), which today is the
+// same flat 50,000 for all of them. The plan-aware check below is what
+// actually varies by plan; this Zod cap just bounds request size before
+// that check even runs.
+const TEXT_MAX_LENGTH = 50000;
 
 const detectRequestSchema = z.object({
   text: z
@@ -52,9 +54,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     const plan = await getUserPlan(supabase, user?.id ?? null);
     const planLimits = PLAN_CONFIG[plan].limits;
 
-    if (parsed.data.text.length > planLimits.maxCharsPerRequest) {
+    if (parsed.data.text.length > planLimits.maxCharsPerDetectorRequest) {
       throw new PlanLimitError(
-        `The ${PLAN_CONFIG[plan].name} plan is limited to ${planLimits.maxCharsPerRequest} characters per check. Upgrade for a higher limit.`
+        `The ${PLAN_CONFIG[plan].name} plan is limited to ${planLimits.maxCharsPerDetectorRequest} characters per check. Upgrade for a higher limit.`
       );
     }
 
