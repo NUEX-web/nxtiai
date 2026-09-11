@@ -4,6 +4,7 @@ import type { VoiceProfile } from "./voice-profiles";
 import { mockRewrite } from "@/lib/mock-ai";
 import { UpstreamProviderError } from "./errors";
 import { GeminiRewriteProvider } from "./providers/gemini-provider";
+import { OpenAIRewriteProvider } from "./providers/openai-provider";
 
 /**
  * Model selection architecture.
@@ -58,7 +59,7 @@ export interface RewriteProvider {
  * NOTE: voiceProfile and modelConfig are threaded through end-to-end (and
  * available here) but the mock transform only varies its output by
  * `mode`. Deeper per-voice/per-model variation happens in the real
- * (Gemini) provider, where these fields become actual prompt content.
+ * (OpenAI) provider, where these fields become actual prompt content.
  */
 export class MockRewriteProvider implements RewriteProvider {
   async *rewriteStream({ text, mode }: ResolvedRewriteRequest): AsyncGenerator<string, void, unknown> {
@@ -83,11 +84,16 @@ export class MockRewriteProvider implements RewriteProvider {
 
 /**
  * "provider" is intentionally a superset of what's wired up today.
- * openai/anthropic exist here so the rest of the app (UI, routing) can be
+ * anthropic exists here so the rest of the app (UI, routing) can be
  * written against the full set of providers now -- see getProvider() below,
- * which currently falls back to the mock provider for both since no
- * OpenAIRewriteProvider/AnthropicRewriteProvider class exists yet. Adding
- * one later is a change to getProvider() alone.
+ * which currently falls back to the mock provider for it since no
+ * AnthropicRewriteProvider class exists yet. Adding one later is a change
+ * to getProvider() alone.
+ *
+ * "gemini" is no longer the active default (see MODEL_CONFIG below) but
+ * stays a fully working option -- GeminiRewriteProvider is untouched and
+ * still wired up here, ready to re-enable by pointing MODEL_CONFIG back
+ * at it, with no other code changes required.
  */
 export type ProviderId = "mock" | "gemini" | "openai" | "anthropic";
 
@@ -97,14 +103,20 @@ export interface ModelConfig {
   temperature: number;
 }
 
+// OpenAI's gpt-5.6-luna ("our fastest and most affordable model" per
+// OpenAI) replaces Gemini as the default provider for every tier --
+// faster responses and lower per-token cost than the previous
+// gemini-3.6-flash setup, with no per-tier differentiation needed yet
+// (temperature is still varied per tier, same as before).
 export const MODEL_CONFIG: Record<AiModelId, ModelConfig> = {
-  balanced: { provider: "gemini", model: "gemini-3.6-flash", temperature: 0.5 },
-  precise: { provider: "gemini", model: "gemini-3.6-flash", temperature: 0.2 },
-  fluent: { provider: "gemini", model: "gemini-3.6-flash", temperature: 0.8 },
+  balanced: { provider: "openai", model: "gpt-5.6-luna", temperature: 0.5 },
+  precise: { provider: "openai", model: "gpt-5.6-luna", temperature: 0.2 },
+  fluent: { provider: "openai", model: "gpt-5.6-luna", temperature: 0.8 },
 };
 
 const mockProviderInstance = new MockRewriteProvider();
 let geminiProviderInstance: GeminiRewriteProvider | null = null;
+let openaiProviderInstance: OpenAIRewriteProvider | null = null;
 
 /**
  * Whether a given provider has its API key present in the server
@@ -125,11 +137,6 @@ export function isProviderConfigured(provider: ProviderId): boolean {
   }
 }
 
-/** @deprecated use isProviderConfigured("gemini") */
-function isGeminiConfigured(): boolean {
-  return isProviderConfigured("gemini");
-}
-
 function getGeminiProvider(): RewriteProvider {
   if (!geminiProviderInstance) {
     geminiProviderInstance = new GeminiRewriteProvider();
@@ -137,22 +144,30 @@ function getGeminiProvider(): RewriteProvider {
   return geminiProviderInstance;
 }
 
+function getOpenAIProvider(): RewriteProvider {
+  if (!openaiProviderInstance) {
+    openaiProviderInstance = new OpenAIRewriteProvider();
+  }
+  return openaiProviderInstance;
+}
+
 /**
  * Returns the provider instance for a given model id. Falls back to the
  * mock provider whenever the configured provider for that id isn't
- * actually available (no API key set, or -- for openai/anthropic today --
- * no provider implementation exists yet) -- the app keeps working with
- * mock output rather than failing every request.
+ * actually available (no API key set, or -- for anthropic today -- no
+ * provider implementation exists yet) -- the app keeps working with mock
+ * output rather than failing every request.
  */
 export function getProvider(aiModel: AiModelId): RewriteProvider {
   const config = MODEL_CONFIG[aiModel];
   switch (config.provider) {
     case "gemini":
-      return isGeminiConfigured() ? getGeminiProvider() : mockProviderInstance;
+      return isProviderConfigured("gemini") ? getGeminiProvider() : mockProviderInstance;
     case "openai":
+      return isProviderConfigured("openai") ? getOpenAIProvider() : mockProviderInstance;
     case "anthropic":
-      // Provider classes land in Phase 2. Routing already resolves here
-      // correctly today -- only this case needs a new branch when they do.
+      // Provider class lands in a future phase. Routing already resolves
+      // here correctly today -- only this case needs a new branch when it does.
       return mockProviderInstance;
     case "mock":
     default:
@@ -180,7 +195,7 @@ export function getModelAvailability(aiModel: AiModelId): boolean {
  */
 export function resolveActiveModelName(aiModel: AiModelId): string {
   const config = MODEL_CONFIG[aiModel];
-  if (config.provider === "gemini" && !isGeminiConfigured()) {
+  if (!isProviderConfigured(config.provider)) {
     return "mock-fallback";
   }
   return config.model;
