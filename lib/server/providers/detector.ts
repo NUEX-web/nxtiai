@@ -1,13 +1,16 @@
-import { GoogleGenAI, ApiError } from "@google/genai";
+import OpenAI, { APIError } from "openai";
 import { UpstreamProviderError } from "../errors";
 
 /**
  * AI-text-likelihood estimation.
  *
- * Same GoogleGenAI client pattern as gemini-provider.ts (server-only,
- * key read once from process.env.GEMINI_API_KEY, never logged or sent to
- * the client), but non-streaming: this returns a single small JSON verdict,
- * not a long rewrite, so there's nothing to stream.
+ * Same OpenAI client pattern as openai-provider.ts (server-only, key read
+ * once from process.env.OPENAI_API_KEY, never logged or sent to the
+ * client), but non-streaming: this returns a single small JSON verdict,
+ * not a long rewrite, so there's nothing to stream. Uses the Chat
+ * Completions API's structured-output support (response_format:
+ * json_schema, strict mode) instead of Gemini's responseSchema -- same
+ * idea, different SDK shape.
  *
  * Honesty matters more than confidence here: AI-text detection is not a
  * solved problem for any vendor, human or automated. This is always
@@ -15,7 +18,7 @@ import { UpstreamProviderError } from "../errors";
  * estimate, never a verified fact.
  */
 
-const MODEL_NAME_FALLBACK = "gemini-3.6-flash";
+const MODEL_NAME_FALLBACK = "gpt-5.6-luna";
 const REQUEST_TIMEOUT_MS = 20_000;
 
 export interface DetectionResult {
@@ -26,7 +29,7 @@ export interface DetectionResult {
 }
 
 function redact(message: string): string {
-  const key = process.env.GEMINI_API_KEY;
+  const key = process.env.OPENAI_API_KEY;
   return key ? message.split(key).join("[redacted]") : message;
 }
 
@@ -38,17 +41,17 @@ function mapDetectorError(error: unknown): never {
     throw new UpstreamProviderError("The AI detector took too long to respond. Please try again.");
   }
 
-  if (error instanceof ApiError) {
+  if (error instanceof APIError) {
     console.error(
-      "[detector] request failed: status=" + error.status + " message=" + redact(error.message)
+      "[detector] request failed: status=" + error.status + " message=" + redact(error.message ?? "")
     );
   } else {
     console.error("[detector] request failed:", error instanceof Error ? redact(error.message) : "unknown error");
   }
 
   throw new UpstreamProviderError(
-    error instanceof ApiError
-      ? `AI detector error (status ${error.status}). ${redact(error.message)}`
+    error instanceof APIError
+      ? `AI detector error (status ${error.status}). ${redact(error.message ?? "")}`
       : "The AI detector returned an unexpected response."
   );
 }
@@ -77,57 +80,72 @@ function mockDetect(text: string): DetectionResult {
     aiLikelihoodPercent: pct,
     verdict: verdictFor(pct),
     explanation:
-      "Estimated from sentence-length uniformity in this development environment (no AI model configured). Connect GEMINI_API_KEY for a real estimate.",
+      "Estimated from sentence-length uniformity in this development environment (no AI model configured). Connect OPENAI_API_KEY for a real estimate.",
     isEstimate: true,
   };
 }
 
-let client: GoogleGenAI | null = null;
-function getClient(): GoogleGenAI {
+let client: OpenAI | null = null;
+function getClient(): OpenAI {
   if (!client) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new UpstreamProviderError();
-    client = new GoogleGenAI({ apiKey });
+    client = new OpenAI({ apiKey });
   }
   return client;
 }
 
 export async function detectAiText(text: string): Promise<DetectionResult> {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return mockDetect(text);
   }
 
   try {
-    const response = await getClient().models.generateContent({
-      model: MODEL_NAME_FALLBACK,
-      contents:
-        "Analyze the following text and estimate the likelihood it was written by an AI " +
-        "language model rather than a human. Weigh sentence-length variation, word-choice " +
-        "predictability, structural repetition, and natural imperfection. Be honest that " +
-        "this is an estimate, not a certainty -- no detector, automated or human, can verify " +
-        "authorship with full confidence.\n\nText:\n\"\"\"\n" +
-        text +
-        '\n"""',
-      config: {
-        systemInstruction:
-          "You are a careful, calibrated AI-text-likelihood estimator. Respond only with JSON " +
-          "matching the given schema. aiLikelihoodPercent is an integer 0-100. explanation is " +
-          "2-3 short sentences a non-technical person can follow, always phrased as an estimate.",
+    const response = await getClient().chat.completions.create(
+      {
+        model: MODEL_NAME_FALLBACK,
         temperature: 0.2,
-        abortSignal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "object",
-          properties: {
-            aiLikelihoodPercent: { type: "number" },
-            explanation: { type: "string" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a careful, calibrated AI-text-likelihood estimator. Respond only with JSON " +
+              "matching the given schema. aiLikelihoodPercent is an integer 0-100. explanation is " +
+              "2-3 short sentences a non-technical person can follow, always phrased as an estimate.",
           },
-          required: ["aiLikelihoodPercent", "explanation"],
+          {
+            role: "user",
+            content:
+              "Analyze the following text and estimate the likelihood it was written by an AI " +
+              "language model rather than a human. Weigh sentence-length variation, word-choice " +
+              "predictability, structural repetition, and natural imperfection. Be honest that " +
+              "this is an estimate, not a certainty -- no detector, automated or human, can verify " +
+              "authorship with full confidence.\n\nText:\n\"\"\"\n" +
+              text +
+              '\n"""',
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "ai_detection_result",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                aiLikelihoodPercent: { type: "number" },
+                explanation: { type: "string" },
+              },
+              required: ["aiLikelihoodPercent", "explanation"],
+              additionalProperties: false,
+            },
+          },
         },
       },
-    });
+      { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
+    );
 
-    const raw = response.text;
+    const raw = response.choices[0]?.message?.content;
     if (!raw) throw new UpstreamProviderError("The AI detector returned an empty result.");
 
     let parsed: { aiLikelihoodPercent: number; explanation: string };
