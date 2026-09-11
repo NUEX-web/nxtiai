@@ -57,9 +57,17 @@ export interface PlanLimits {
    * the general per-IP burst rate limiter (lib/server/rate-limiter.ts)
    * and by maxCharsPerRequest below. */
   monthlyRewriteQuota: number | null;
-  /** Applies to both /api/rewrite and /api/detect input text, signed-in
-   * or not. */
+  /** Applies to /api/rewrite input text, signed-in or not. Kept much
+   * lower than maxCharsPerDetectorRequest below -- a rewrite has to
+   * regenerate the text token-for-token, so length drives real model
+   * cost and latency. */
   maxCharsPerRequest: number;
+  /** Applies to /api/detect input text, signed-in or not. Deliberately
+   * flat across every plan (not tiered like maxCharsPerRequest) and much
+   * higher -- detection only reads and classifies the text once, it
+   * never regenerates it, so a long essay or report costs about the same
+   * as a paragraph. */
+  maxCharsPerDetectorRequest: number;
   /** AI Detector checks per month, signed-in users only, counted from
    * detector_history. */
   monthlyDetectorQuota: number | null;
@@ -96,6 +104,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     limits: {
       monthlyRewriteQuota: 20,
       maxCharsPerRequest: 600,
+      maxCharsPerDetectorRequest: 50000,
       monthlyDetectorQuota: 3,
       voiceProfileLimit: 1,
       historyLimit: 5,
@@ -118,6 +127,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     limits: {
       monthlyRewriteQuota: 300,
       maxCharsPerRequest: 3000,
+      maxCharsPerDetectorRequest: 50000,
       monthlyDetectorQuota: 40,
       voiceProfileLimit: 5,
       historyLimit: 100,
@@ -141,6 +151,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     limits: {
       monthlyRewriteQuota: 2000,
       maxCharsPerRequest: 5000,
+      maxCharsPerDetectorRequest: 50000,
       monthlyDetectorQuota: 300,
       voiceProfileLimit: 25,
       historyLimit: null,
@@ -163,6 +174,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
     limits: {
       monthlyRewriteQuota: null,
       maxCharsPerRequest: 5000,
+      maxCharsPerDetectorRequest: 50000,
       monthlyDetectorQuota: null,
       voiceProfileLimit: null,
       historyLimit: null,
