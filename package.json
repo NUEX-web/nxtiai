@@ -17,6 +17,7 @@
     "lucide-react": "^1.38.0",
     "mammoth": "^1.12.2",
     "next": "16.3.4",
+    "openai": "^7.15.0",
     "pdf-parse": "^2.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
