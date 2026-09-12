@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
@@ -104,6 +104,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
         }
         setLoading(false);
+
+        // Only a genuine new sign-in should trigger login/signup
+        // notification emails -- never a page-load session restore
+        // (INITIAL_SESSION), a background token refresh
+        // (TOKEN_REFRESHED), or a profile edit (USER_UPDATED). This is
+        // the only server touchpoint plain email/password login ever
+        // has (signInWithPassword() is a direct browser-to-Supabase
+        // call), so it's also the only place that can trigger it for
+        // that flow. The server independently re-verifies the session
+        // and deduplicates by session id (lib/server/auth-notify.ts),
+        // so even this firing more than once for one real login --
+        // multiple open tabs replaying the same event, a remount --
+        // never sends more than one email.
+        if (event === "SIGNED_IN" && currentUser) {
+          fetch("/api/auth/notify", { method: "POST" }).catch(() => {
+            // Best-effort -- a failed notification call must never
+            // affect the user's actual sign-in.
+          });
+        }
       }
     );
 
