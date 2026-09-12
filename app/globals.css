@@ -278,6 +278,27 @@ body {
   order: 3;
 }
 
+/* Both text panels get a fixed height regardless of how much text is in
+   them -- pasting a large document must scroll *inside* the panel, never
+   grow the panel (and with it the page). Height, not max-height: a short
+   piece of text still gets the full box rather than a collapsed one, per
+   the "same editor height either way" requirement. Paired with each
+   textarea/output box using flex-1 + min-h-0 + overflow-y-auto so the
+   scrollable element actually fills this fixed height instead of
+   overflowing it (a flex child's default min-height is its content size,
+   which would defeat this without min-h-0). */
+.workspace-editor,
+.workspace-output {
+  height: 26rem;
+}
+
+@media (min-width: 1024px) {
+  .workspace-editor,
+  .workspace-output {
+    height: 34rem;
+  }
+}
+
 /* ---------------------------------------------------------------------
    Small reusable surfaces
    --------------------------------------------------------------------- */

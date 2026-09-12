@@ -3,7 +3,6 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import WritingWorkspace from "@/components/WritingWorkspace";
 import BeforeAfter from "@/components/BeforeAfter";
-import AIEngineSection from "@/components/AIEngineSection";
 import PersonalVoiceSection from "@/components/PersonalVoiceSection";
 import ToolsSection from "@/components/ToolsSection";
 import HowItWorks from "@/components/HowItWorks";
@@ -41,7 +40,6 @@ export default function Home() {
         <Hero />
         <WritingWorkspace unavailableModels={unavailableModels} />
         <BeforeAfter />
-        <AIEngineSection />
         <PersonalVoiceSection />
         <ToolsSection />
         <HowItWorks />
