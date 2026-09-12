@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
-  Fingerprint,
   GraduationCap,
   Mail,
   PenLine,
@@ -25,9 +24,12 @@ interface Tool {
   /** Standalone page instead of a workspace mode (e.g. AI Detector). Takes
    * priority over `mode` when both would otherwise apply. */
   href?: string;
-  comingSoon?: boolean;
 }
 
+// Every entry here is a real, working capability -- no "coming soon"
+// placeholders. A tool with no working implementation belongs off this
+// list entirely, not on it with a disabled/Soon state (see the old
+// "Brand Voice" entry this list used to carry).
 const TOOLS: Tool[] = [
   { name: "Paraphraser", description: "Rephrase any text while keeping the meaning intact.", icon: Repeat, mode: "standard" },
   { name: "Grammar Checker", description: "Catch grammar, spelling and punctuation issues.", icon: SpellCheck2, mode: "grammar-checker" },
@@ -36,7 +38,6 @@ const TOOLS: Tool[] = [
   { name: "AI Writer", description: "Draft new content from a topic or outline.", icon: PenLine, mode: "standard" },
   { name: "Academic Writer", description: "Write in a formal, citation-ready register.", icon: GraduationCap, mode: "academic" },
   { name: "Email Writer", description: "Compose clear emails for any situation.", icon: Mail, mode: "email" },
-  { name: "Brand Voice", description: "Keep every piece of content on-brand.", icon: Fingerprint, comingSoon: true },
   { name: "AI Detector", description: "Check whether text reads as AI-written.", icon: ShieldCheck, href: "/ai-detector" },
 ];
 
@@ -58,26 +59,6 @@ export default function ToolsSection() {
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
         {TOOLS.map((tool) => {
           const Icon = tool.icon;
-
-          if (tool.comingSoon) {
-            return (
-              <div
-                key={tool.name}
-                className="flex flex-col gap-3 bg-surface px-5 py-6 opacity-60"
-              >
-                <Icon className="h-5 w-5 text-ink-faint" aria-hidden="true" />
-                <div className="flex flex-1 flex-col">
-                  <span className="flex items-center gap-2 font-medium text-ink">
-                    {tool.name}
-                    <span className="rounded-full bg-line px-1.5 py-0.5 text-[9px] font-semibold uppercase text-ink-soft">
-                      Soon
-                    </span>
-                  </span>
-                  <span className="mt-1 text-sm text-ink-soft">{tool.description}</span>
-                </div>
-              </div>
-            );
-          }
 
           return (
             <Link

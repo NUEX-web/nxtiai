@@ -622,7 +622,7 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
             }}
             placeholder="Paste or write your text here…"
             rows={12}
-            className="min-h-64 w-full flex-1 resize-none rounded-xl border border-line bg-canvas p-4 text-[15px] leading-relaxed text-ink placeholder:text-ink-faint focus-visible:border-accent"
+            className="w-full min-h-0 flex-1 resize-none overflow-y-auto rounded-xl border border-line bg-canvas p-4 text-[15px] leading-relaxed text-ink placeholder:text-ink-faint focus-visible:border-accent"
           />
 
           {status === "error" && errorMessage && (
@@ -704,7 +704,7 @@ function WritingWorkspaceInner({ unavailableModels = [] }: WritingWorkspaceProps
             )}
           </div>
 
-          <div className="relative min-h-64 flex-1 rounded-xl border border-accent-soft-line bg-accent-soft p-4">
+          <div className="relative min-h-0 flex-1 overflow-y-auto rounded-xl border border-accent-soft-line bg-accent-soft p-4">
             {status === "loading" ? (
               <div className="flex h-full flex-col justify-center gap-3" aria-live="polite">
                 <span className="sr-only">{statusLabelForElapsed(elapsedMs)}</span>
