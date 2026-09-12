@@ -28,7 +28,7 @@ export async function sendOwnerAlertEmail({ subject, text }: AlertEmailParams): 
     return;
   }
 
-  const to = process.env.ALERTS_TO_EMAIL || "shaikhsameerkadeer@gmail.com";
+  const to = process.env.ALERTS_TO_EMAIL || "shaikhsameer73377@gmail.com";
   const from = process.env.ALERTS_FROM_EMAIL || "NXTIAI Alerts <onboarding@resend.dev>";
 
   try {

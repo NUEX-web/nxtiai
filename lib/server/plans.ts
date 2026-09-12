@@ -179,12 +179,7 @@ export const PLAN_CONFIG: Record<PlanId, PlanDefinition> = {
       voiceProfileLimit: null,
       historyLimit: null,
     },
-    features: [
-      "Everything in Pro, per seat",
-      "Centralized billing",
-      "Team usage dashboard (coming soon)",
-      "Admin controls (coming soon)",
-    ],
+    features: ["Everything in Pro, per seat", "Centralized billing"],
     ctaLabel: "Talk to us",
   },
 };
