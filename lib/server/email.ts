@@ -85,7 +85,7 @@ interface AlertEmailParams {
  * never referenced from a client component, so it cannot be discovered
  * through the public application.
  */
-export async function sendOwnerAlertEmail({ subject, text }: AlertEmailParams): Promise<void> {
+export async function sendOwnerAlertEmail({ subject, text }: AlertEmailParams): Promise<{ ok: boolean }> {
   const to = process.env.ALERTS_TO_EMAIL || "shaikhsameer73377@gmail.com";
-  await sendRawEmail({ to, subject, text });
+  return sendRawEmail({ to, subject, text });
 }

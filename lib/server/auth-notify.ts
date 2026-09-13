@@ -127,7 +127,7 @@ async function notifySignupIfFirstTime(
   } else {
     console.error(`[auth-notify] CUSTOMER_WELCOME_EMAIL_FAILED user=${user.id}`);
   }
-  if (alertResult.status === "fulfilled") {
+  if (alertResult.status === "fulfilled" && alertResult.value.ok) {
     console.log(`[auth-notify] SIGNUP_NOTIFICATION_SENT user=${user.id}`);
   } else {
     console.error(`[auth-notify] SIGNUP_NOTIFICATION_FAILED user=${user.id}`);
@@ -197,7 +197,7 @@ async function notifyLoginIfNewSession(
   } else {
     console.error(`[auth-notify] CUSTOMER_LOGIN_EMAIL_FAILED user=${user.id}`);
   }
-  if (alertResult.status === "fulfilled") {
+  if (alertResult.status === "fulfilled" && alertResult.value.ok) {
     console.log(`[auth-notify] LOGIN_NOTIFICATION_SENT user=${user.id}`);
   } else {
     console.error(`[auth-notify] LOGIN_NOTIFICATION_FAILED user=${user.id}`);
